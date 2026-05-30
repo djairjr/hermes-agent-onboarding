@@ -104,7 +104,11 @@ This was built and tested on:
 - **Hermes Agent** via WSL2 (Windows Subsystem for Linux)
 - **Provider:** Ollama Cloud with `deepseek-v4-flash:cloud`
 - **Supabase:** Cloud project, 6 base tables + career-tracker + identity tables
-- **21 MCP servers** (13 HTTP Edge Functions + 8 stdio tools)
+- **Local Backup Server:** Radxa E24C with 250GB NVMe — permanent Supabase
+  replica for resilience and offline access
+- **21 MCP servers** (13 HTTP Edge Functions + 8 stdio tools), all backed by
+  Supabase Edge Functions on the cloud project, with the local Radxa as a
+  secondary sync target
 - **Ollama launch** wrapper for environment management
 
 ## Official Tutorials
