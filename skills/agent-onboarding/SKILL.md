@@ -129,26 +129,46 @@ Guide questions (one at a time, in conversation):
 
 ### 1C — MBTI (user_mbti)
 
-Uses the **MBTI Guru** skill (not a partial adaptation). The full Guru
-is invoked as a Hermes skill, running in conversation mode (not CLI).
+**MBTI Guru is a reference, not a dependency.** The Guru's structure
+(4 dimensions, scoring, report format) is the model. The Hermes version
+is a **lightweight conversational adaptation** — not a CLI tool or a
+port of 200 questions.
 
 Protocol:
 1. ASK: "Do you know MBTI? Know your type?"
-2. EXPLAIN if needed — 4 dimensions, 16 types
-3. IF KNOWN: validate type with quick questions
-4. IF UNKNOWN: offer Guru test levels:
-   - "MBTI Guru offers 4 test versions:
-     1. Quick (70 questions, ~10 min)
-     2. Standard (93 questions, ~15 min)
-     3. Extended (144 questions, ~25 min)
-     4. Professional (200 questions, ~35 min)
-     Which do you prefer?"
-5. Invoke the Guru skill to run the test in conversation
-6. Register result in user_mbti + user_profiles.mbti_type
+2. EXPLAIN if needed: "MBTI has 4 dimensions:
+   - Energy: Extraversion (E) vs Introversion (I)
+   - Information: Sensing (S) vs Intuition (N)
+   - Decisions: Thinking (T) vs Feeling (F)
+   - Structure: Judging (J) vs Perceiving (P)
+   16 types total."
+3. IF KNOWN: "What's your type?" → validate with 4 quick questions
+4. IF UNKNOWN: "We have 3 levels:
+   1. Quick (10 questions, ~5 min) — just the 4 dimensions
+   2. Standard (20 questions, ~10 min) — more precise
+   3. Detailed (40 questions, ~20 min) — deeper analysis
+   Which do you prefer?"
 
-**MBTI Guru** is a complete, standalone skill that handles its own question
-bank, scoring, result generation, and bilingual reports. The meta-skill
-invokes it as a sub-skill — not adapts or rewrites it.
+   The agent asks questions one by one in conversation (A or B).
+   Questions are adapted from MBTI Guru's structure but reduced to
+   the chosen level. No CLI, no script — pure conversation.
+
+5. After answers → calculate score per dimension → determine type
+6. Register in user_mbti + update user_profiles.mbti_type
+
+**Scoring logic (built into the meta-skill):**
+- Each dimension (E/I, S/N, T/F, J/P) has N questions
+- Each answer scores toward one pole
+- The pole with more answers is the result
+- Confidence = (difference / total) * 100
+- Register: ei/sn/tf/jp + source='quick_test|standard_test|detailed_test'
+- Generate a brief type summary from MBTI Guru's type descriptions
+
+**MBTI Guru reference** (in referencias/mbti-guru/):
+- Structure: 4 dimensions × A/B questions per dimension
+- Scoring: accumulate toward poles
+- Report format: type, dimension analysis, strengths/weaknesses
+- 16 type descriptions
 
 ### 1D — Career-tracker (skill: career-mapping)
 
@@ -276,8 +296,10 @@ The identity is the **documented relationship** — nothing more, nothing less.
 1. **Identity layer is not optional** — Without it, the agent is a blank
    slate every session. The meta-skill is about reliability, not features.
 
-2. **MBTI Guru is invoked, not adapted** — Use the complete Guru skill.
-   Don't rewrite 200 questions. The user chooses the level.
+2. **MBTI Guru is a reference, not a dependency** — The Guru's structure
+   (4 dimensions, A/B questions, scoring) is the model. The Hermes version
+   is a lightweight conversational adaptation: 10/20/40 questions asked in
+   conversation, not a CLI port of 200 questions. See referencias/mbti-guru/.
 
 3. **Career-tracker is not optional** — It IS the biography. Skipping it
    means the agent doesn't know who the user is.
@@ -295,7 +317,7 @@ The identity is the **documented relationship** — nothing more, nothing less.
 - context-bridge — Stage 0 (multi-source context injection)
 - supabase-startup-protocol — mandatory scan
 - golden-rules — R0b, R22, R28
-- MBTI Guru (Skill) — Stage 1C (full personality test)
+- MBTI Guru (referencia) — Stage 1C (structure: 4 dimensions, A/B questions, scoring)
 - career-mapping — Stage 1D (biography interview)
 - work-operating-model — Stage 2 (operational interview)
 - supabase-finance — Stage 3 (17 MCP tools)
