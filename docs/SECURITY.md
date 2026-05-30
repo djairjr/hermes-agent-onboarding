@@ -286,3 +286,13 @@ FINANCE_MCP_KEY="your-finance-mcp-key"
 | secrets.env in git | ✅ No | Blocked by .gitignore |
 | config.yaml in git | ✅ No | Blocked by .gitignore |
 | secrets.env.example | ❌ Not created | Must create for repo |
+
+## GPG Commit Signing
+
+All commits in this repository are signed with GPG key
+`8DD2DAD7756068C9` (djair.jr@gmail.com).
+
+To verify: `git log --show-signature`
+
+
+GPG key `6B67B080006EFB7F` — all commits signed.
