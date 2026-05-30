@@ -1,0 +1,41 @@
+# Secrets
+.env
+.env.*
+secrets.env
+*.pem
+*.key
+
+# Config with keys
+config.yaml
+*.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Supabase
+.supabase/
+supabase/.branches/
+*.local*
+
+# Hermes
+.hermes/
+hermes/
