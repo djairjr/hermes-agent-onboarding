@@ -1,11 +1,11 @@
 ---
 name: agent-onboarding
 description: >
-  ORCHESTRATOR v2.0.0. Generative meta-skill for ANY user.
+  ORCHESTRATOR v3.0.0. Generative meta-skill for ANY user.
   Core: persistent agent identity layer (identity_faults, capabilities,
   milestones). Biography = career-tracker + MBTI. Financial × personality.
-  Generative domain ontology. Universal: writers, teachers, engineers, artists.
-version: 2.0.0
+  User's File System as Operating System. Universal: writers, teachers, engineers, artists.
+version: 3.0.0
 tags: [onboarding, meta-skill, generative, identity, mbti, financial, universal]
 ---
 
@@ -355,18 +355,69 @@ A estrutura de dados proposta deve refletir o jeito dela — não substituí-lo.
 
 **Regra:** NUNCA vasculhar sem permissão. O usuário mostra, o agente olha.
 
-#### 2. PERGUNTAR
+#### 2. GRILLAR (entrevista profunda)
 
-"O que te incomoda nisso? O que você gostaria de organizar melhor?"
+O agente entrevista o usuário sobre o trabalho real. Não pergunta sobre
+entidades ou esquemas — pergunta sobre o que a pessoa FAZ.
 
-Nunca perguntar sobre entidades ou esquemas. Perguntar sobre:
-- "Onde você perde tempo procurando?"
-- "O que você copia manualmente de um lugar pro outro?"
-- "O que você esquece entre uma semana e outra?"
+**Perguntas abertas para começar:**
+
+- "Me conta como é seu dia de trabalho. O que você faz?"
+- "O que você cria, transforma ou entrega?"
+- "Com quem você se relaciona no trabalho? Clientes? Fornecedores? Parceiros?"
+- "O que você precisa saber para fazer seu trabalho?"
 - "O que você gostaria de perguntar pro computador e não consegue?"
 
-**Regra:** A resposta do usuário É o insight. O agente não adivinha nem propõe
-antes de ouvir.
+**O agente escuta ativamente.** Não interrompe com propostas de estrutura.
+Deixa o usuário falar. É na fala do usuário que aparecem os sintomas.
+
+#### 2b. DETECTAR LINGUAGEM TURVA (o motor do grill)
+
+Enquanto o usuário fala, o agente monitora sinais de linguagem imprecisa:
+
+| O usuário diz... | O agente pensa... |
+|-----------------|-------------------|
+| "essa coisa, aquele negócio, o bagulho" | Termo sem nome — candidato a entidade |
+| "esses textos, esses arquivos, esses projetos" | Categoria não definida — agrupa coisas distintas |
+| "fulano pediu, beltrano falou" | Pessoa não registrada — candidato a contato |
+| "teve um problema com o prazo" | Evento sem rastro — candidato a histórico |
+| "eu anoto no papel / bloco de notas / post-it" | Informação que se perde — candidato a ficha |
+| "eu copio manualmente de [X] para [Y]" | Dado duplicado — candidato a integração |
+| "ano passado eu fiz algo parecido mas não lembro" | Conhecimento perdido — candidato a consulta |
+
+**Quando detecta linguagem turva, o agente APERTA imediatamente:**
+
+```
+Usuário: "eu tenho esses textos que escrevo e envio pra editora"
+Agente: "O que é um 'texto' pra você? Um artigo? Um capítulo? Uma proposta?"
+Usuário: "Na verdade são três coisas diferentes — artigos pro blog, 
+          capítulos do livro, e propostas pra editoras"
+Agente: "Entendi. Então temos três tipos diferentes. Vou anotar:
+
+📄 UBÍQUO: 'artigo' = texto curto publicado no blog
+📄 UBÍQUO: 'capítulo' = seção de livro em andamento  
+📄 UBÍQUO: 'proposta' = documento de pitching para editora
+
+É isso? Você usa nomes diferentes pra cada um?"
+```
+
+**Isso gera linguagem compartilhada na hora.** O usuário e o agente
+passam a usar os mesmos termos. O `UBIQUITOUS_LANGUAGE.md` nasce
+naturalmente da conversa — não é um documento em separado, é o
+registro dos termos que o grill solidificou.
+
+#### 2c. IDENTIFICAR LIMITAÇÕES
+
+A linguagem turva é o **sintoma**. A limitação real é o que o usuário
+não consegue fazer por causa dela:
+
+- "Você falou de 3 tipos de texto. Onde você guarda o status de cada um?"
+- "Você mencionou 5 clientes. Você lembra o que cada um pediu na última conversa?"
+- "Você disse que pesquisa fornecedores toda vez. E se eu guardasse os que você já usou?"
+
+A pergunta não é "que estrutura você quer?" — é:
+
+> **"O que você não consegue saber agora que gostaria de saber?"**
 
 #### 3. TRADUZIR
 
