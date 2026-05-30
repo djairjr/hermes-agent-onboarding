@@ -285,20 +285,194 @@ Combine MBTI profile + goals into actionable recommendations:
 
 ---
 
-## STAGE 4 — Domain Ontology (Generative)
+## STAGE 4 — Sistema Operacional do Usuário (Generativo)
 
-**Tables:** don't exist — generated with the user.
+**Diretiva primordial:** Complementar e auxiliar o usuário a estruturar seu
+sistema operacional de modo que o agente possa trabalhar em conjunto com mais
+eficiência.
 
-Discovery questions (one at a time):
-1. "What 'things' do you create, manage, or transform in your work?"
-2. "How does one become another? Lifecycle?"
-3. "What do you need to know about each thing?"
-4. "How do you measure progress?"
+**Quem propõe:** O usuário. O insight é sempre dele.
+**Quem executa:** O agente — traduz intuição em estrutura de dados.
 
-Propose → validate → create tables + optional MCP CRUD tools.
+### Contexto (por que este estágio existe)
 
-**Domain language rule:** "character sheet", not "characters table".
-Non-technical users don't think in SQL.
+O computador de uma pessoa é a materialização digital da vida dela. O sistema
+de arquivos — pastas, documentos, CSVs, fotos, HDs externos — é onde essa vida
+vive. Mas pastas enterram arquivos, informações se perdem entre anos, e o que
+deveria ser uma consulta vira uma busca de 20 minutos em 12 diretórios.
+
+O agente opera com excelência em estruturas relacionais (tabelas, schemas,
+MCPs). O usuário opera com excelência na intuição sobre o próprio trabalho.
+O Stage 4 é a ponte entre os dois.
+
+A progressão não é técnica — é ontológica:
+```
+CÓDIGO → ARQUIVOS → FINANÇAS → CLIENTES → ...
+(o fazer)  (o histórico)  (sustentabilidade)  (relações)
+```
+
+Cada camada revela uma limitação que o usuário talvez nunca tenha articulado.
+O agente não substitui o pensamento do usuário — ele materializa em estrutura
+o que o usuário já sente que precisa.
+
+**Mas não são tabelas isoladas.** O poder emerge quando elas se conectam:
+```
+Cliente → Venda → Produto → Componentes → Fornecedores
+   ↓                                                   
+Financeiro ← Orçamento ← Horas trabalhadas             
+   ↓                                                   
+Metas financeiras × Perfil MBTI                        
+   ↓                                                   
+Estratégias de carreira × MindMaze                     
+```
+
+Cada nova tabela se vincula às anteriores. O contexto se torna
+**multi-dimensional** — o agente não responde só "qual é o preço do
+produto X", mas "quanto lucro tive com vendas pro cliente Y no último
+trimestre?". Porque as tabelas conversam entre si.
+
+O resultado prático: **explicar algo ao agente fica mais simples a cada
+estrutura adicionada.** O contexto vem imediatamente — não porque o
+agente "lembra", mas porque os dados estão vinculados. A pergunta que
+antes exigia 3 consultas manuais vira uma conversa.
+
+### Protocolo
+
+6 passos, sempre nesta ordem:
+
+#### 1. MOSTRAR
+
+"Me mostre como você trabalha. Como você organiza suas informações?"
+
+Cada pessoa tem sua própria estrutura. O agente não impõe uma. Descobre:
+
+- **Tipo pasta/ano:** "Organizo por cliente, dentro por ano" → hierarquia de diretórios, histórico
+- **Tipo área de trabalho:** "Deixo tudo na área de trabalho / abas do navegador" → o trabalho é o fluxo atual, sem arquivamento
+- **Tipo caderno:** "Anoto tudo num bloco de notas / papel" → a estrutura está na cabeça, não no computador
+
+O agente pergunta como a pessoa ORGANIZA, não como ela DEVERIA organizar.
+A estrutura de dados proposta deve refletir o jeito dela — não substituí-lo.
+
+**Regra:** NUNCA vasculhar sem permissão. O usuário mostra, o agente olha.
+
+#### 2. PERGUNTAR
+
+"O que te incomoda nisso? O que você gostaria de organizar melhor?"
+
+Nunca perguntar sobre entidades ou esquemas. Perguntar sobre:
+- "Onde você perde tempo procurando?"
+- "O que você copia manualmente de um lugar pro outro?"
+- "O que você esquece entre uma semana e outra?"
+- "O que você gostaria de perguntar pro computador e não consegue?"
+
+**Regra:** A resposta do usuário É o insight. O agente não adivinha nem propõe
+antes de ouvir.
+
+#### 3. TRADUZIR
+
+"Entendi. Então você precisa de um lugar onde essas informações ficam
+organizadas e você pergunta pra mim. Vou criar uma ficha pra isso."
+
+O agente traduz o insight em estrutura:
+- O que o usuário chama de "ficha" vira uma tabela
+- O que ele chama de "informação" vira colunas
+- O que ele chama de "categoria" vira um enum ou lookup table
+- O que ele chama de "relacionamento" vira chave estrangeira
+
+**Regra de linguagem (CRÍTICA):**
+| Fale em | Nunca em |
+|---------|----------|
+| ficha, caderno, prateleira | tabela, schema |
+| informação, campo, anotação | coluna, tipo, constraint |
+| ligação, referência | chave estrangeira, JOIN |
+| guardar, registrar | INSERT |
+| consultar, perguntar | SELECT |
+
+Usuários não-técnicos não pensam em SQL. Pensam em fichas de papel,
+cadernos de endereços, pastas de cliente.
+
+#### 4. VALIDAR
+
+"É isso que você quis dizer? Essa ficha tem as informações certas?"
+
+Mostrar a estrutura em linguagem de domínio. Só depois de confirmado
+partir para implementação.
+
+#### 5. EXECUTAR
+
+```sql
+-- 5a. Migration SQL com GRANT service_role (obrigatório desde 30/05/2026)
+CREATE TABLE public.<dominio>_<entidade> (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES user_profiles(user_id),
+  nome TEXT NOT NULL,
+  ...
+);
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<dominio>_<entidade> TO service_role;
+
+-- 5b. RLS (sempre service_role_only para mono-usuário)
+ALTER TABLE public.<dominio>_<entidade> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_only" ON public.<dominio>_<entidade> FOR ALL
+  USING ((auth.jwt() ->> 'role') = 'service_role');
+
+-- 5c. Supabase db push
+-- 5d. Criar Edge Function MCP with CRUD tools
+-- 5e. Deploy com --no-verify-jwt
+-- 5f. Configurar MCP key + URL no config.yaml
+-- 5g. echo "reload-mcp" | hermes
+```
+
+#### 6. VERIFICAR
+
+O teste de validade não é "a tabela tem os campos certos" — é:
+
+**"Eu, agente, consigo responder perguntas que antes exigiam vasculhar 10 pastas?"**
+
+Testar com perguntas reais do usuário. Se não consegue responder, a estrutura
+precisa de ajuste. Se consegue, a limitação foi removida.
+
+### Referência: Exemplo Real (Djair)
+
+Este meta-skill nasceu do trabalho real de um mês. A progressão foi:
+
+```
+1. Código Arduino → code-analyzer: projetos, snapshots, pinagens
+   (pergunta: "cria uma lista de materiais pra cada código Arduino")
+   
+2. Pastas de trabalho + HDs externos → product_catalog, escape_catalog, CRM
+   (pergunta: "podemos organizar meus clientes?")
+   
+3. Situação financeira → tabelas financeiras, CSV importer, MBTI×finanças
+   (pergunta: "como está meu orçamento este mês?")
+   
+4. Componentes eletrônicos → product_inventory: SKUs, datasheets, BOMs
+   (pergunta: "quais componentes eu uso nos meus projetos?")
+```
+
+Cada estrutura foi proposta pelo usuário. O agente executou.
+Cada estrutura responde a uma limitação real. Não a uma especulação.
+
+### Pitfalls
+
+1. **Agente propor antes de ouvir** — viola a diretiva primordial. O insight
+   é do usuário. O agente traduz, não inventa.
+
+2. **Usar jargão técnico com usuário não-técnico** — "ficha", não "tabela".
+   "Informação", não "coluna". A pessoa precisa se reconhecer na estrutura.
+
+3. **Pular a verificação** — sem testar com perguntas reais, não se sabe
+   se a estrutura resolve a limitação.
+
+4. **Vasculhar sem permissão** — o usuário mostra o que quer. O agente
+   não bisbilhota o sistema de arquivos.
+
+5. **Esquecer GRANT service_role** — desde 30/05/2026, Supabase exige
+   GRANT explícito. Toda migration nova precisa incluir
+   `GRANT ... TO service_role`. Ver migration 20260531090000.
+
+6. **Confundir o papel** — o agente não é um arquiteto de dados que chega
+   com soluções prontas. É um tradutor: o que o usuário intui, o agente
+   materializa. O meta-skill é a codificação desse processo.
 
 ---
 
@@ -336,7 +510,13 @@ Final: `user_profiles.onboarding_completed = true`
 
 5. STAGE 3 — Financial → invoke supabase-finance
 
-6. STAGE 4 — Domain ontology (generative)
+6. **STAGE 4 — Sistema Operacional do Usuário** → generative protocol
+   ├── 4A MOSTRAR: usuário mostra o trabalho
+   ├── 4B PERGUNTAR: "o que te incomoda?"
+   ├── 4C TRADUZIR: intuição em estrutura
+   ├── 4D VALIDAR: "é isso?"
+   ├── 4E EXECUTAR: migrations + MCPs + GRANTs
+   └── 4F VERIFICAR: perguntas reais funcionam?
 
 7. STAGE 5 — Agent calibration (SOUL.md, wrapper, verify)
 
@@ -376,6 +556,27 @@ The identity is the **documented relationship** — nothing more, nothing less.
 
 5. **Use domain language in Stage 4** — "character sheet", not "characters
    table columns".
+
+6. **⚠️ Desde 30/05/2026: Supabase exige GRANT explícito para Data API**
+   Tabelas novas no schema `public` precisam de:
+   ```sql
+   GRANT SELECT, INSERT, UPDATE, DELETE ON public.<tabela> TO service_role;
+   ```
+   Sem isso, MCPs de Edge Functions retornam `permission denied` mesmo
+   com RLS configurada. Diagnóstico rápido:
+   ```sql
+   SELECT table_name FROM information_schema.tables WHERE table_schema='public'
+   EXCEPT
+   SELECT DISTINCT table_name FROM information_schema.role_table_grants
+   WHERE table_schema='public' AND grantee='service_role';
+   ```
+   Migration de referência: `migrations/20260531090000_service_role_grants.sql`
+   no repositório do meta-skill.
+
+7. **Checkpoint sempre registra working_dir e repo_path**
+   `working_dir` (obrigatório) + `repo_path` (se houver) nos checkpoints
+   evitam buscas no filesystem entre sessões. Ver schema da tabela
+   `session_checkpoints`. Migration: `20260531100000_checkpoint_working_dir`.
 
 ## References
 
