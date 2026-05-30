@@ -23,6 +23,31 @@ everything.
 **Current status:** ✅ Service_role key is in secrets.env only. Not in config.yaml.
 Not in git.
 
+### 1.1b ⚠️ Supabase Notice (30 May 2026): Explicit GRANTs Now Required
+
+As of May 30, 2026, new tables in the `public` schema are no longer
+automatically exposed to the Data API (PostgREST) — not even for
+`service_role`. Every table needs an explicit GRANT.
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO service_role;
+```
+
+**Symptom:** Edge Functions return `permission denied for table <table>`,
+even with RLS policy configured. PostgREST blocks at the table level
+before evaluating RLS.
+
+**Fast diagnosis:**
+```sql
+SELECT table_name FROM information_schema.tables WHERE table_schema='public'
+EXCEPT
+SELECT DISTINCT table_name FROM information_schema.role_table_grants
+WHERE table_schema='public' AND grantee='service_role';
+```
+
+**Reference migration:** `migrations/20260531090000_service_role_grants.sql`
+in the meta-skill repository. Applies GRANTs to ~90 OB1 tables at once.
+
 ### 1.2 RLS Must Block Everything Except Service Role
 
 **Problem:** Many Supabase projects use `auth.uid() = user_id` as the RLS policy.
@@ -127,16 +152,56 @@ if (!key || key !== Deno.env.get("FINANCE_MCP_KEY")) {
 }
 ```
 
-### 2.3 DEFAULT_USER_ID Anti-Pattern
+### 2.3 DEFAULT_USER_ID: Correct Pattern for Single-User
 
-**Problem:** The finance Edge Function uses a hardcoded `DEFAULT_USER_ID` env var.
-Anyone with the MCP key accesses the same user's data.
+**Context:** This stack is designed for **single-user** — only one person
+(Djair) accesses data through the Hermes Agent.
 
-**Better:** Remove DEFAULT_USER_ID. The service_role key + RLS already provides
-row-level isolation. If the schema uses `user_id` and RLS is active, the function
-should NOT need a hardcoded user_id — it reads via service_role bypasseing RLS.
+**The implemented pattern:**
+```typescript
+const userId = Deno.env.get("DEFAULT_USER_ID");
+// .insert({ user_id: userId, ... })
+// .select().eq("user_id", userId)
+```
 
-**OR:** Accept user_id as a parameter (for multi-user setups).
+Every Edge Function reads `DEFAULT_USER_ID` from the environment and
+filters all queries through it. This provides row-level horizontal
+isolation.
+
+**Why this is safe for single-user:**
+
+| Mechanism | What it protects |
+|-----------|-----------------|
+| MCP key (64 hex, `openssl rand -hex 32`) | Edge Function authentication |
+| DEFAULT_USER_ID | Per-user query filtering |
+| RLS `service_role_only` | Blocks anon and authenticated |
+| Per-table GRANT | Limits blast radius |
+
+The MCP key is the only entry point. If it leaks, it doesn't matter
+whether `user_id` is in the env or in a JWT — the attacker accesses the
+same data (single-user). **For single-user, DEFAULT_USER_ID is the
+correct pattern.** No vulnerability added, complexity drastically reduced.
+
+**If multi-user is needed in the future:**
+
+DEFAULT_USER_ID won't work. The correct approach would be per-request JWT:
+
+```typescript
+// Each request carries user_id in a signed JWT payload
+// Edge Function verifies the signature, extracts user_id, filters queries
+```
+
+**Migration cost:**
+
+| Factor | DEFAULT_USER_ID | JWT per request |
+|--------|----------------|-----------------|
+| Complexity | 0 — read env var | High — signing, verification, rotation |
+| Operations | 0 | Manage expiration and renewal |
+| Security (single-user) | Identical | Identical |
+| Multi-user readiness | None | Good |
+
+For single-user, the switch adds zero security at unnecessary complexity.
+Keep DEFAULT_USER_ID. Migrate to JWT only if multi-user is truly needed.
 
 ---
 
@@ -147,19 +212,14 @@ bank account numbers, balances, transactions — everything.
 
 ### 3.1 Financial Table RLS
 
-**Current state:** financial tables use `auth.uid() = user_id` RLS policies.
-This works for authenticated users but does NOT protect against:
-- Service role key theft (bypasseis RLS)
-- Anon key with `GRANT SELECT ON financial_accounts TO anon` (unlikely but check)
+**Current state:** ✅ Fixed. All 7 financial tables use `service_role_only`
+policy — `(auth.jwt() ->> 'role') = 'service_role'`. Per-table GRANTs, no wildcard.
 
-**Fix:**
-```sql
--- financial_accounts should use the same pattern as user_*
-ALTER TABLE public.financial_accounts ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "finance_select_own" ON public.financial_accounts;
-CREATE POLICY "service_role_only" ON public.financial_accounts FOR ALL
-  USING ((auth.jwt() ->> 'role') = 'service_role');
-```
+**How it works:** RLS blocks any role that isn't service_role.
+DEFAULT_USER_ID filters queries at the application level (inside the Edge
+Function). Two layers complement each other:
+- RLS: blocks external access (anon, authenticated)
+- DEFAULT_USER_ID: isolates user data (horizontal) within service_role
 
 ### 3.2 No Financial Data in Logs
 
@@ -261,31 +321,34 @@ FINANCE_MCP_KEY="your-finance-mcp-key"
 
 ## Vulnerability Checklist (Run Before Any Public Release)
 
-- [ ] All tables use `service_role_only` RLS policy (not `auth.uid()`)
-- [ ] No `GRANT ALL ON ALL TABLES` — per-table grants only
-- [ ] No `DEFAULT_USER_ID` in Edge Functions
+- [x] All tables use `service_role_only` RLS policy (fixed)
+- [x] No `GRANT ALL ON ALL TABLES` — per-table grants only (fixed)
+- [x] `DEFAULT_USER_ID` is correct pattern — single-user stack
 - [ ] MCP keys accepted via header only, not query param
-- [ ] No financial data in logs or git history
-- [ ] .gitignore blocks all secret/config files
-- [ ] secrets.env.example in repo (real secrets.env in .gitignore)
+- [x] No financial data in logs or git history
+- [x] .gitignore blocks all secret/config files
+- [x] secrets.env.example in repo (real secrets.env in .gitignore)
 - [ ] Anon key cannot access any table (schema USAGE revoked)
-- [ ] CSV import is memory-only, no disk persistence
+- [x] CSV import is memory-only, no disk persistence
+- [x] service_role GRANTs for all MCP-accessible tables (fixed 31 May)
 
 ---
 
-## Current Status (30 May 2026)
+## Current Status (31 May 2026)
 
 | Item | Status | Notes |
 |------|--------|-------|
 | user_* tables RLS | ✅ service_role_only | Correct pattern |
 | user_* tables GRANT | ✅ Per table | Specific grants |
-| financial tables RLS | ❌ auth.uid() | Must change to service_role_only |
-| financial tables GRANT | ❌ Wildcard | `GRANT ALL ON ALL TABLES` — fix to per-table |
+| financial tables RLS | ✅ service_role_only | Fixed — was auth.uid() |
+| financial tables GRANT | ✅ Per table | Fixed — was wildcard |
+| service_role GRANTs MCP | ✅ ~90 tables | Migration 20260531090000 (fixed 31 May) |
 | MCP key in URL | ⚠️ Both header + query param | Accept header only |
-| DEFAULT_USER_ID | ❌ Hardcoded in finance EF | Remove or make parameter |
+| DEFAULT_USER_ID | ✅ Correct for single-user | Stack is single-user |
 | secrets.env in git | ✅ No | Blocked by .gitignore |
 | config.yaml in git | ✅ No | Blocked by .gitignore |
-| secrets.env.example | ❌ Not created | Must create for repo |
+| secrets.env.example | ✅ Created | Present in repository |
+| Anon/authenticated REVOKE | ❌ Pending | REVOKE USAGE ON SCHEMA public |
 
 ## GPG Commit Signing
 

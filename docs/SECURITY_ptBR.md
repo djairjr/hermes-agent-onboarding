@@ -11,7 +11,7 @@
 A chave service_role tem **acesso total ao banco de dados**. Perdê-la significa perder tudo.
 
 | Regra | Por quê |
-|------|---------|
+|-------|---------|
 | NUNCA comitar no git | Mesmo em repositórios privados. Acidentalmente tornar público = violação. |
 | NUNCA no config.yaml | Config.yaml é frequentemente compartilhado ou copiado em backup. |
 | APENAS em ~/.hermes/secrets.env | Com `redact_secrets: true` no config.yaml. |
@@ -19,6 +19,31 @@ A chave service_role tem **acesso total ao banco de dados**. Perdê-la significa
 | ROTACIONAR se houver suspeita de exposição | Regenerar imediatamente no painel do Supabase. |
 
 **Status atual:** ✅ Chave service_role está apenas em secrets.env. Não está em config.yaml. Não está no git.
+
+### 1.1b ⚠️ Comunicado Supabase (30/05/2026): GRANTs Explícitos Agora Obrigatórios
+
+Desde 30 de maio de 2026, novas tabelas no schema `public` não são mais
+expostas ao Data API (PostgREST) automaticamente — nem mesmo para
+`service_role`. Toda tabela precisa de um GRANT explícito.
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<tabela> TO service_role;
+```
+
+**Sintoma:** Edge Functions retornam `permission denied for table <tabela>`,
+mesmo com RLS policy configurada. O PostgREST bloqueia no nível de tabela
+antes de avaliar a RLS.
+
+**Diagnóstico rápido:**
+```sql
+SELECT table_name FROM information_schema.tables WHERE table_schema='public'
+EXCEPT
+SELECT DISTINCT table_name FROM information_schema.role_table_grants
+WHERE table_schema='public' AND grantee='service_role';
+```
+
+**Migration de referência:** `migrations/20260531090000_service_role_grants.sql`
+no repositório do meta-skill. Aplica GRANTs a ~90 tabelas OB1 de uma vez.
 
 ### 1.2 RLS Deve Bloquear Tudo Exceto Service Role
 
@@ -118,14 +143,58 @@ if (!key || key !== Deno.env.get("FINANCE_MCP_KEY")) {
 }
 ```
 
-### 2.3 Anti-Padrão DEFAULT_USER_ID
+### 2.3 DEFAULT_USER_ID: Padrão Correto para Mono-Usuário
 
-**Problema:** A Edge Function financeira usa uma env var `DEFAULT_USER_ID` fixa.
-Qualquer um com a chave MCP acessa os dados do mesmo usuário.
+**Contexto:** Este stack foi projetado para **mono-usuário** — apenas uma pessoa
+(Djair) acessa os dados através do agente Hermes.
 
-**Melhor:** Remover DEFAULT_USER_ID. A chave service_role + RLS já fornece
-isolamento no nível de linha. Se o schema usa `user_id` e RLS está ativo, a função
-NÃO deve precisar de um user_id fixo.
+**O padrão implementado:**
+```typescript
+const userId = Deno.env.get("DEFAULT_USER_ID");
+// .insert({ user_id: userId, ... })
+// .select().eq("user_id", userId)
+```
+
+Toda Edge Function lê `DEFAULT_USER_ID` do ambiente e filtra todas as queries
+por ele. Isso garante isolamento horizontal no nível de linha.
+
+**Por que isso é seguro para mono-usuário:**
+
+| Mecanismo | O que protege |
+|-----------|---------------|
+| MCP key (64 hex, `openssl rand -hex 32`) | Autenticação na Edge Function |
+| DEFAULT_USER_ID | Filtragem por usuário nas queries |
+| RLS `service_role_only` | Bloqueia anon e authenticated |
+| GRANT por tabela | Limita raio de explosão |
+
+A MCP key é a única porta de entrada. Se ela vazar, tanto faz se o
+`user_id` está no env ou no JWT — o atacante acessa os mesmos dados
+(mono-usuário). **Para mono-usuário, DEFAULT_USER_ID é o padrão correto.**
+Não adiciona vulnerabilidade e reduz drasticamente a complexidade.
+
+**E se no futuro for multi-usuário?**
+
+Nesse cenário, DEFAULT_USER_ID fixo no env não serve. A abordagem correta
+seria JWT por request:
+
+```typescript
+// Cada request carrega user_id no payload de um JWT assinado
+// A Edge Function verifica a assinatura, extrai user_id, filtra queries
+```
+
+**Custo da troca para JWT:**
+
+| Fator | DEFAULT_USER_ID | JWT por request |
+|-------|----------------|-----------------|
+| Complexidade | 0 — ler env var | Alta — signing, verification, rotation |
+| Carga operacional | 0 | Gerenciar expiração e renovação |
+| Segurança (mono-usuário) | Idêntica | Idêntica |
+| Preparo para multi-usuário | Nenhum | Bom |
+
+Para mono-usuário, a troca agregaria zero segurança e complexidade
+desnecessária. A recomendação é manter DEFAULT_USER_ID enquanto o
+stack for mono-usuário, e migrar para JWT apenas se houver necessidade
+real de multi-usuário no futuro.
 
 ---
 
@@ -136,10 +205,15 @@ números de contas bancárias, saldos, transações — tudo.
 
 ### 3.1 RLS de Tabelas Financeiras
 
-**Estado atual:** tabelas financeiras usam políticas RLS `auth.uid() = user_id`.
-Isso funciona para usuários autenticados mas NÃO protege contra:
-- Roubo da chave service_role (bypasseia RLS)
-- Chave anon com `GRANT SELECT ON financial_accounts TO anon`
+**Estado atual:** ✅ Corrigido. Todas as 7 tabelas financeiras usam política
+`service_role_only` — `(auth.jwt() ->> 'role') = 'service_role'`. GRANTs por
+tabela, sem wildcard.
+
+**Como funciona:** A RLS bloqueia qualquer role que não seja service_role.
+O DEFAULT_USER_ID filtra as queries no nível da aplicação (dentro da Edge
+Function). As duas camadas se complementam:
+- RLS: bloqueia acesso externo (anon, authenticated)
+- DEFAULT_USER_ID: isola dados do usuário (horizontal) dentro do service_role
 
 ### 3.2 Sem Dados Financeiros em Logs
 
@@ -241,31 +315,34 @@ FINANCE_MCP_KEY="sua-chave-finance-mcp"
 
 ## Checklist de Vulnerabilidades (Executar Antes de Qualquer Lançamento Público)
 
-- [ ] Todas as tabelas usam política RLS `service_role_only` (não `auth.uid()`)
-- [ ] Sem `GRANT ALL ON ALL TABLES` — apenas grants por tabela
-- [ ] Sem `DEFAULT_USER_ID` em Edge Functions
+- [x] Todas as tabelas usam política RLS `service_role_only` (corrigido)
+- [x] Sem `GRANT ALL ON ALL TABLES` — apenas grants por tabela (corrigido)
+- [x] `DEFAULT_USER_ID` é o padrão correto — stack mono-usuário
 - [ ] Chaves MCP aceitas via header apenas, não query param
-- [ ] Sem dados financeiros em logs ou histórico git
-- [ ] .gitignore bloqueia todos os arquivos secret/config
-- [ ] secrets.env.example no repositório (secrets.env real está no .gitignore)
+- [x] Sem dados financeiros em logs ou histórico git
+- [x] .gitignore bloqueia todos os arquivos secret/config
+- [x] secrets.env.example no repositório (secrets.env real está no .gitignore)
 - [ ] Chave anon não pode acessar nenhuma tabela (USAGE no schema revogado)
-- [ ] Importação CSV é apenas em memória, sem persistência em disco
+- [x] Importação CSV é apenas em memória, sem persistência em disco
+- [x] GRANTs service_role para todas as tabelas acessadas por MCP (corrigido 31/05)
 
 ---
 
-## Status Atual (30 de Maio de 2026)
+## Status Atual (31 de Maio de 2026)
 
 | Item | Status | Notas |
 |------|--------|-------|
 | Tabelas user_* RLS | ✅ service_role_only | Padrão correto |
 | Tabelas user_* GRANT | ✅ Por tabela | Grants específicos |
-| Tabelas financeiras RLS | ❌ auth.uid() | Deve mudar para service_role_only |
-| Tabelas financeiras GRANT | ❌ Wildcard | `GRANT ALL ON ALL TABLES` — corrigir para por tabela |
+| Tabelas financeiras RLS | ✅ service_role_only | Corrigido — antes usava auth.uid() |
+| Tabelas financeiras GRANT | ✅ Por tabela | Corrigido — antes era wildcard |
+| Service role GRANTs MCP | ✅ ~90 tabelas | Migration 20260531090000 (corrigido 31/05) |
 | Chave MCP na URL | ⚠️ Header + query param | Aceitar apenas header |
-| DEFAULT_USER_ID | ❌ Fixo na EF financeira | Remover ou tornar parâmetro |
+| DEFAULT_USER_ID | ✅ Padrão correto para mono-usuário | Stack é mono-usuário |
 | secrets.env no git | ✅ Não | Bloqueado pelo .gitignore |
 | config.yaml no git | ✅ Não | Bloqueado pelo .gitignore |
 | secrets.env.example | ✅ Criado | Presente no repositório |
+| Anon/authenticated REVOKE | ❌ Pendente | REVOKE USAGE ON SCHEMA public |
 
 ## Assinatura GPG de Commits
 
