@@ -52,11 +52,12 @@ hermes --skills agent-onboarding
 
 | Documento | O que cobre |
 |-----------|-------------|
-| [Instalação](docs/00-INSTALLATION.md) | Instalar Hermes em qualquer SO |
-| [Configuração](docs/01-CONFIGURATION.md) | Provedores, modelos, secrets |
-| [Setup Supabase](docs/02-SUPABASE.md) | Criar projeto, aplicar migrations |
-| [Executando Onboarding](docs/03-RUNNING.md) | Executar o processo de 6 estágios |
-| [Personalizando](docs/04-CUSTOMIZING.md) | Adaptar para seu domínio |
+| [Instalação](docs/00-INSTALLATION_ptBR.md) | Instalar Hermes em qualquer SO |
+| [Configuração](docs/01-CONFIGURATION_ptBR.md) | Provedores, modelos, secrets |
+| [Setup Supabase](docs/02-SUPABASE_ptBR.md) | Criar projeto, aplicar migrations |
+| [Executando Onboarding](docs/03-RUNNING_ptBR.md) | Executar o processo de 6 estágios |
+| [Personalizando](docs/04-CUSTOMIZING_ptBR.md) | Adaptar para seu domínio |
+| [Segurança](docs/SECURITY_ptBR.md) | Protocolo de segurança do stack |
 
 ## Arquitetura
 
@@ -68,7 +69,7 @@ agent-onboarding (skill orquestrador)
     │   └── supabase-startup-protocol (scan, checkpoint)
     ├── Estágio 1: Perfil do Usuário
     │   ├── career-mapping skill (capacidades, marcos)
-    │   └── MBTI Guru adaptado (teste de 10/20/40 perguntas)
+    │   └── MBTI Guru adaptado (teste de 70/93/144/200 perguntas)
     ├── Estágio 2: Modelo Operacional
     │   └── work-operating-model skill + MCP
     ├── Estágio 3: Financeiro
