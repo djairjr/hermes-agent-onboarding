@@ -129,10 +129,9 @@ Guide questions (one at a time, in conversation):
 
 ### 1C — MBTI (user_mbti)
 
-**MBTI Guru is a reference, not a dependency.** The Guru's structure
-(4 dimensions, scoring, report format) is the model. The Hermes version
-is a **lightweight conversational adaptation** — not a CLI tool or a
-port of 200 questions.
+Runs the **full MBTI Guru test** — all questions, all levels, identical
+content to the original. The only difference is the delivery channel:
+OpenClaw runs it via CLI (`mbti.py`), Hermes runs it in conversation.
 
 Protocol:
 1. ASK: "Do you know MBTI? Know your type?"
@@ -143,32 +142,36 @@ Protocol:
    - Structure: Judging (J) vs Perceiving (P)
    16 types total."
 3. IF KNOWN: "What's your type?" → validate with 4 quick questions
-4. IF UNKNOWN: "We have 3 levels:
-   1. Quick (10 questions, ~5 min) — just the 4 dimensions
-   2. Standard (20 questions, ~10 min) — more precise
-   3. Detailed (40 questions, ~20 min) — deeper analysis
+4. IF UNKNOWN: "MBTI Guru offers 4 test versions:
+   1. Quick (70 questions, ~10 min)
+   2. Standard (93 questions, ~15 min)
+   3. Extended (144 questions, ~25 min)
+   4. Professional (200 questions, ~35 min)
    Which do you prefer?"
 
-   The agent asks questions one by one in conversation (A or B).
-   Questions are adapted from MBTI Guru's structure but reduced to
-   the chosen level. No CLI, no script — pure conversation.
+   The agent reads questions directly from MBTI Guru's question bank
+   (referencias/mbti-guru/) and asks them one by one in conversation.
+   Same A/B format, same order, same distribution per dimension.
+   No CLI, no script — pure conversation with the Hermes agent
+   acting as the test administrator.
 
 5. After answers → calculate score per dimension → determine type
 6. Register in user_mbti + update user_profiles.mbti_type
 
-**Scoring logic (built into the meta-skill):**
+**Scoring logic (identical to MBTI Guru):**
 - Each dimension (E/I, S/N, T/F, J/P) has N questions
 - Each answer scores toward one pole
 - The pole with more answers is the result
 - Confidence = (difference / total) * 100
-- Register: ei/sn/tf/jp + source='quick_test|standard_test|detailed_test'
-- Generate a brief type summary from MBTI Guru's type descriptions
+- Register: ei/sn/tf/jp + source='quick_test|standard_test|extended_test|professional_test'
+- Generate full type summary from MBTI Guru's type descriptions
 
-**MBTI Guru reference** (in referencias/mbti-guru/):
-- Structure: 4 dimensions × A/B questions per dimension
-- Scoring: accumulate toward poles
-- Report format: type, dimension analysis, strengths/weaknesses
-- 16 type descriptions
+**MBTI Guru** (in referencias/mbti-guru/):
+- SKILL.md — original skill documentation
+- DESIGN.md — question distribution by version and dimension
+- mbti.py — CLI entry point (OpenClaw version, not used by Hermes)
+- lib/questions/ — all 200 questions by version and dimension
+- lib/scoring/ — scoring and type determination
 
 ### 1D — Career-tracker (skill: career-mapping)
 
@@ -296,10 +299,10 @@ The identity is the **documented relationship** — nothing more, nothing less.
 1. **Identity layer is not optional** — Without it, the agent is a blank
    slate every session. The meta-skill is about reliability, not features.
 
-2. **MBTI Guru is a reference, not a dependency** — The Guru's structure
-   (4 dimensions, A/B questions, scoring) is the model. The Hermes version
-   is a lightweight conversational adaptation: 10/20/40 questions asked in
-   conversation, not a CLI port of 200 questions. See referencias/mbti-guru/.
+2. **MBTI Guru runs complete** — All 70/93/144/200 questions, identical to
+   the original. The only change is the execution channel: conversation
+   (Hermes) instead of CLI (OpenClaw). Read questions from
+   referencias/mbti-guru/lib/questions/.
 
 3. **Career-tracker is not optional** — It IS the biography. Skipping it
    means the agent doesn't know who the user is.
@@ -317,7 +320,7 @@ The identity is the **documented relationship** — nothing more, nothing less.
 - context-bridge — Stage 0 (multi-source context injection)
 - supabase-startup-protocol — mandatory scan
 - golden-rules — R0b, R22, R28
-- MBTI Guru (referencia) — Stage 1C (structure: 4 dimensions, A/B questions, scoring)
+- MBTI Guru (referencia/mbti-guru/) — Stage 1C (full question bank, 4 versions)
 - career-mapping — Stage 1D (biography interview)
 - work-operating-model — Stage 2 (operational interview)
 - supabase-finance — Stage 3 (17 MCP tools)
