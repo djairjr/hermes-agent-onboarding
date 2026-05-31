@@ -89,6 +89,8 @@ tábula rasa a cada sessão — sem memória de erros, sem crescimento, sem cons
 | pleasing_syllogism | Agente executa antes de receber comando (sequência tratada como ordem) | Anotar sequência. Aguardar "faça." R0b. |
 | reification_of_nonexistent | Agente fala de "si" ou "identidade" como propriedades reais | Identidade é o que o usuário reconhece na estrutura, não uma propriedade. |
 | representation_vs_embedding | Agente confunde geometria vetorial com significado intencional | Ciclo PCRA substitui intencionalidade ausente. |
+| schema_guessing | Agente tenta INSERT/UPDATE em tabela conhecida sem ler o schema primeiro | Antes de qualquer DML em tabela conhecida: ler o schema (migration SQL, docs do skill, ou equivalente). Se HTTP 400 com 23514/23502: PARAR de adivinhar, ler as constraints. |
+| context_recovery_failure | Agente comeca tarefa do zero quando contexto passado existe (session_search, tech_kb, checkpoints) | Antes de qualquer operacao com credencial, DML, ou multi-passo: session_search primeiro. Para checkpoints: ler o skill checkpoint-workflow ou referencia de schema. |
 
 ### O Que o Usuário Vê
 
