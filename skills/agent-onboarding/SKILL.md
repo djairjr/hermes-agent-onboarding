@@ -574,14 +574,52 @@ LLMs have no inherent identity. Each session is a new conversation.
 The model doesn't remember what it learned about you, what it did wrong,
 or how it should behave.
 
-The identity layer makes this explicit:
-1. **identity_faults** — every mistake is logged with cause and fix
-2. **Next session** — the agent reads faults, applies countermeasures
-3. **Over time** — behavior converges, mistakes decrease
+The identity layer makes this explicit through a three-stage cycle:
+
+```
+REGISTER  →  INJECT  →  BEHAVE
+```
+
+### REGISTER
+Faults go into `identity_faults`. Capabilities go into `agent_capabilities`.
+Milestones go into `identity_milestones`. All in Supabase, all relational,
+all queryable across sessions.
+
+### INJECT
+Countermeasures need a delivery channel. Two mechanisms:
+
+1. **SOUL.md (stable tier, PRIMARY)** — In Hermes Agent, `SOUL.md` is loaded
+   automatically as the first element of the system prompt (system_prompt.py),
+   before any user message or skill. This makes countermeasures active at
+   generation time. No agent cooperation required — the framework does it.
+
+2. **identity-cqrs startup scan (runtime, SECONDARY)** — The startup scan
+   queries fault tables and injects behavior rules into session context.
+   Complementary but cannot prevent first-response faults.
+
+> **Key insight:** SOUL.md must be a **physical file** (`~/.hermes/SOUL.md`),
+> not a virtual context injection. Runtime injection by identity-cqrs is
+> a safety net only. Without SOUL.md, the cycle breaks at INJECT.
+
+SOUL.md is intentionally a **curated extract** — only severity >= 4,
+only active, max ~10 rules. The full database lives in Supabase and can
+hold thousands of faults indefinitely. SOUL.md remains compact by curation,
+not by truncation.
+
+### BEHAVE
+With countermeasures active in the stable tier, every response is generated
+under those constraints. The agent does not **decide** to follow the rules —
+it generates text within a token-space that already includes them. Behavior
+correction is automatic, not deliberative.
 
 This is NOT anthropomorphism. The agent does not "feel bad" about mistakes.
 It reads a database table and adjusts its behavior rules accordingly.
 The identity is the **documented relationship** — nothing more, nothing less.
+
+### Use for Model Retraining
+The relational data — situation that triggered a fault + correct response per
+countermeasure — also serves as a fine-tuning dataset (LoRA/DPO). SOUL.md is
+the immediate injection; the tables are the training material.
 
 ## Pitfalls
 

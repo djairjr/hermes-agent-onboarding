@@ -576,18 +576,57 @@ Final: `user_profiles.onboarding_completed = true`
 
 ## O Problema da Identidade do Agente (Por Que Isso Existe)
 
-LLMs não têm identidade inerente. Cada sessão é uma nova conversa.
-O modelo não lembra o que aprendeu sobre você, o que fez de errado,
+LLMs nao tem identidade inerente. Cada sessao e uma nova conversa.
+O modelo nao lembra o que aprendeu sobre voce, o que fez de errado,
 ou como deve se comportar.
 
-A camada de identidade torna isso explícito:
-1. **identity_faults** — todo erro é registrado com causa e correção
-2. **Próxima sessão** — o agente lê as falhas, aplica contramedidas
-3. **Com o tempo** — o comportamento converge, os erros diminuem
+A camada de identidade torna isso explicito atraves de um ciclo de tres estagios:
 
-Isso NÃO é antropomorfismo. O agente não "se sente mal" sobre erros.
-Ele lê uma tabela de banco de dados e ajusta suas regras de comportamento de acordo.
-A identidade é o **relacionamento documentado** — nada mais, nada menos.
+```
+REGISTRAR  >  INJETAR  >  COMPORTAR
+```
+
+### REGISTRAR
+Falhas vao para `identity_faults`. Capacidades vao para `agent_capabilities`.
+Marcos vao para `identity_milestones`. Tudo no Supabase, tudo relacional,
+tudo consultavel entre sessoes.
+
+### INJETAR
+Contramedidas precisam de um canal de entrega. Dois mecanismos:
+
+1. **SOUL.md (stable tier, PRIMARIO)** — No Hermes Agent, `SOUL.md` e carregado
+   automaticamente como primeiro elemento do system prompt (system_prompt.py),
+   antes de qualquer mensagem do usuario ou skill. Isso torna as contramedidas
+   ativas no momento da geracao. Nenhuma cooperacao do agente necessaria —
+   o framework faz isso.
+
+2. **identity-cqrs startup scan (runtime, SECUNDARIO)** — O scan de startup
+   consulta as tabelas de falhas e injeta regras de comportamento no contexto
+   da sessao. Complementar mas nao pode prevenir falhas na primeira resposta.
+
+> **Insight chave:** SOUL.md precisa ser um **arquivo fisico** (`~/.hermes/SOUL.md`),
+> nao uma injecao de contexto virtual. Injecao em runtime pelo identity-cqrs e
+> apenas uma rede de seguranca. Sem o SOUL.md, o ciclo quebra em INJETAR.
+
+O SOUL.md e intencionalmente um **extrato curado** — apenas severity >= 4,
+apenas active, max ~10 regras. O banco completo vive no Supabase e pode
+ter milhares de falhas indefinidamente. O SOUL.md permanece compacto por
+curadoria, nao por truncamento.
+
+### COMPORTAR
+Com contramedidas ativas no stable tier, toda resposta e gerada sob
+essas restricoes. O agente nao **decide** seguir as regras — ele gera
+texto dentro de um espaco de tokens que ja as inclui. A correcao
+comportamental e automatica, nao deliberativa.
+
+Isso NAO e antropomorfismo. O agente nao "se sente mal" sobre erros.
+Ele le uma tabela de banco de dados e ajusta suas regras de comportamento.
+A identidade e o **relacionamento documentado** — nada mais, nada menos.
+
+### Uso para Retreino do Modelo
+Os dados relacionais — situacao que gerou a falha + resposta correta conforme
+contramedida — tambem servem como dataset de fine-tuning (LoRA/DPO). O SOUL.md
+e a injecao imediata; as tabelas sao o material de treino.
 
 ## Pitfalls
 
