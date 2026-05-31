@@ -2,195 +2,195 @@
 name: stage-3-financial
 version: 1.0.0
 description: >
-  Stage 3 do meta-skill agent-onboarding. Perfil financeiro baseado em MBTI +
-  importação de CSV bancário + definição de metas + estratégias adaptadas ao
-  tipo de personalidade. Usa as MCP tools supabase-finance + supabase-worklog.
+  Stage 3 of the meta-skill agent-onboarding. Financial profile based on MBTI +
+  bank CSV import + goal setting + strategies adapted to
+  personality type. Uses MCP tools supabase-finance + supabase-worklog.
 tags: [financial, mbti, csv, goals, stage-3, meta-skill]
 ---
 
-# Stage 3 — Perfil Financeiro
+# Stage 3 — Financial Profile
 
-## Propósito
+## Purpose
 
-Este estágio constrói o perfil financeiro do usuário a partir de 4 camadas:
-1. **Importação de dados** (CSV bancário → Supabase)
-2. **Perfil MBTI × Finanças** (comportamento financeiro por tipo de personalidade)
-3. **Metas financeiras** (curto, médio e longo prazo)
-4. **Estratégias adaptadas** ao perfil + metas
+This stage builds the user's financial profile from 4 layers:
+1. **Data import** (bank CSV → Supabase)
+2. **MBTI × Finance profile** (financial behavior by personality type)
+3. **Financial goals** (short, medium, and long term)
+4. **Adapted strategies** tailored to profile + goals
 
-## Arquivos do Skill
+## Skill Files
 
-| Arquivo | Função |
-|---------|--------|
-| `mbti_financial_profiles.py` | 16 perfis financeiros MBTI em pt-BR com assess_financial_personality() |
-| `csv_importer.py` | Importador de CSV bancário com detecção automática de formato |
+| File | Function |
+|------|---------|
+| `mbti_financial_profiles.py` | 16 MBTI financial profiles in English with assess_financial_personality() |
+| `csv_importer.py` | Bank CSV importer with automatic format detection |
 
 ---
 
-## PARTE 1 — FLUXO CONVERSACIONAL
+## PART 1 — CONVERSATIONAL FLOW
 
-### 3A: Importação de CSV
-
-```
-"Quer que eu analise seus extratos bancários?
-Posso ler CSVs do Nubank, Itaú, Inter, Caixa.
-
-Se quiser:
-1. Exporte seu extrato como CSV
-2. Me passe o arquivo (ou cole o conteúdo)
-3. Eu mostro um preview e você confirma antes de importar
-```
-
-**Preview mode sempre primeiro:**
+### 3A: CSV Import
 
 ```
-Formato detectado: Nubank
-Período: 01/01/2026 a 31/01/2026
-Transações: 45
-  Receitas: R$ 8.500,00
-  Despesas: R$ 5.230,00
-  Saldo do período: R$ 3.270,00
+"Would you like me to analyze your bank statements?
+I can read CSVs from Nubank, Itaú, Inter, Caixa.
 
-Categorias detectadas:
-  Alimentação: 12 transações
-  Transporte: 8 transações
-  Assinaturas: 4 transações
-
-Importar? (s/N):
+If you want to:
+1. Export your statement as CSV
+2. Send me the file (or paste the content)
+3. I'll show a preview and you confirm before importing
 ```
 
-### 3B: Perfil MBTI × Finanças
-
-Após o MBTI estar registrado (do Stage 1C), perguntar:
+**Preview mode always first:**
 
 ```
-"Seu tipo MBTI é {type_code} — {name_pt_BR}.
-Quer que eu analise como isso influencia suas finanças?
+Detected format: Nubank
+Period: 01/01/2026 to 01/31/2026
+Transactions: 45
+  Income: R$ 8,500.00
+  Expenses: R$ 5,230.00
+  Period balance: R$ 3,270.00
 
-Posso te mostrar:
-• Seu perfil financeiro baseado no MBTI
-• Pontos fortes e fracos com dinheiro
-• Como você tende a poupar, gastar e investir
-• Recomendações específicas para seu tipo
+Detected categories:
+  Food: 12 transactions
+  Transportation: 8 transactions
+  Subscriptions: 4 transactions
 
-Vamos?"
+Import? (y/N):
 ```
 
-Usar `mbti_financial_profiles.py`:
+### 3B: MBTI × Finance Profile
+
+After MBTI is registered (from Stage 1C), ask:
+
+```
+"Your MBTI type is {type_code} — {name_en_US}.
+Would you like me to analyze how this influences your finances?
+
+I can show you:
+• Your financial profile based on MBTI
+• Strengths and weaknesses with money
+• How you tend to save, spend, and invest
+• Specific recommendations for your type
+
+Shall we?"
+```
+
+Use `mbti_financial_profiles.py`:
 
 ```python
 from mbti_financial_profiles import get_profile, assess_financial_personality
 
 profile = get_profile(type_code)
-# Exibir: strengths, weaknesses, saving_style, spending_style, etc.
+# Display: strengths, weaknesses, saving_style, spending_style, etc.
 
-# Se o usuário respondeu perguntas financeiras:
+# If the user answered financial questions:
 result = assess_financial_personality(answers, type_code)
-# Exibir observations + recommendations
+# Display observations + recommendations
 ```
 
-**Perguntas para calibrar o perfil:**
+**Questions to calibrate the profile:**
 ```
-1. "Como você poupa? Automático, manual, ou quando sobra?"
-2. "Sua tolerância a risco financeiro? Alta, média ou baixa?"
-3. "O que mais te faz gastar? Ferramentas, experiências sociais, conforto?"
-4. "Qual frase descreve melhor sua relação com dinheiro?
-   A) Dinheiro é liberdade
-   B) Dinheiro é segurança
-   C) Dinheiro é ferramenta
-   D) Dinheiro é para viver"
-```
-
-### 3C: Metas Financeiras
-
-```
-"Agora, vamos definir metas financeiras.
-
-Curto prazo (6 meses): o que você quer realizar?
-Médio prazo (2 anos): qual o próximo degrau?
-Longo prazo (5+ anos): qual seu horizonte?
-
-Exemplos:
-• Curto: quitar dívida do cartão, fundo de emergência de R$ 10.000
-• Médio: entrada de um imóvel, trocar de carro
-• Longo: independência financeira, aposentadoria aos 55
+1. "How do you save? Automatically, manually, or when there's leftover?"
+2. "Your financial risk tolerance? High, medium, or low?"
+3. "What makes you spend the most? Tools, social experiences, comfort?"
+4. "Which phrase best describes your relationship with money?
+   A) Money is freedom
+   B) Money is security
+   C) Money is a tool
+   D) Money is for living"
 ```
 
-Registrar via MCP `mcp_supabase_finance_add_goal()`.
-
-### 3D: Estratégias Adaptadas
-
-Combinar MBTI + metas em recomendações:
+### 3C: Financial Goals
 
 ```
-"Baseado no seu perfil INTJ (Arquiteto) e suas metas:
+"Now, let's set financial goals.
 
-✅ O que já funciona para você:
-• Planejamento estratégico — você já pensa no longo prazo
-• Disciplina para seguir orçamentos
+Short term (6 months): what do you want to achieve?
+Medium term (2 years): what's the next step?
+Long term (5+ years): what's your horizon?
 
-⚠️ O que precisa de atenção:
-• Pode ignorar custos emocionais em decisões financeiras
-• Gasto impulsivo em projetos de alto impacto
-
-📋 Recomendações:
-1. Automatizar 30% da renda para investimentos
-2. Fundo de emergência de 12 meses
-3. 10% em 'projetos estratégicos'
-4. Planilha de patrimônio líquido mensal
-5. 5% para 'gasto livre'
-
-Quer que eu implemente alguma dessas estratégias?"
+Examples:
+• Short: pay off credit card debt, R$ 10,000 emergency fund
+• Medium: down payment on a property, change cars
+• Long: financial independence, retirement at 55
 ```
 
-Usar `assess_financial_personality()` com as respostas do usuário + type_code.
+Register via MCP `mcp_supabase_finance_add_goal()`.
+
+### 3D: Adapted Strategies
+
+Combine MBTI + goals into recommendations:
+
+```
+"Based on your INTJ profile (Architect) and your goals:
+
+✅ What already works for you:
+• Strategic planning — you already think long term
+• Discipline to follow budgets
+
+⚠️ What needs attention:
+• You may ignore emotional costs in financial decisions
+• Impulsive spending on high-impact projects
+
+📋 Recommendations:
+1. Automate 30% of income toward investments
+2. 12-month emergency fund
+3. 10% for 'strategic projects'
+4. Monthly net worth spreadsheet
+5. 5% for 'free spending'
+
+Would you like me to implement any of these strategies?"
+```
+
+Use `assess_financial_personality()` with the user's answers + type_code.
 
 ---
 
-## PARTE 2 — MCP Tools Disponíveis
+## PART 2 — AVAILABLE MCP TOOLS
 
-O Stage 3 usa as seguintes MCP tools da extensão `supabase-finance`:
+Stage 3 uses the following MCP tools from the `supabase-finance` extension:
 
-| Tool | Função |
-|------|--------|
-| `mcp_supabase_finance_list_accounts` | Listar contas bancárias |
-| `mcp_supabase_finance_add_account` | Adicionar conta |
-| `mcp_supabase_finance_add_transaction` | Registrar transação |
-| `mcp_supabase_finance_list_transactions` | Listar transações com filtros |
-| `mcp_supabase_finance_add_goal` | Adicionar meta financeira |
-| `mcp_supabase_finance_list_goals` | Listar metas |
-| `mcp_supabase_finance_list_categories` | Listar categorias |
-| `mcp_supabase_finance_get_dashboard` | Dashboard financeiro |
-| `mcp_supabase_finance_set_budget` | Definir orçamento mensal |
-| `mcp_supabase_worklog_log_work` | Registrar trabalho com valor |
-| `mcp_supabase_worklog_get_month` | Resumo mensal de trabalho + receitas |
+| Tool | Function |
+|------|---------|
+| `mcp_supabase_finance_list_accounts` | List bank accounts |
+| `mcp_supabase_finance_add_account` | Add account |
+| `mcp_supabase_finance_add_transaction` | Register transaction |
+| `mcp_supabase_finance_list_transactions` | List transactions with filters |
+| `mcp_supabase_finance_add_goal` | Add financial goal |
+| `mcp_supabase_finance_list_goals` | List goals |
+| `mcp_supabase_finance_list_categories` | List categories |
+| `mcp_supabase_finance_get_dashboard` | Financial dashboard |
+| `mcp_supabase_finance_set_budget` | Set monthly budget |
+| `mcp_supabase_worklog_log_work` | Log work with value |
+| `mcp_supabase_worklog_get_month` | Monthly work + income summary |
 
 ---
 
-## PARTE 3 — COMO INVOCAR (do agent-onboarding)
+## PART 3 — HOW TO INVOKE (from agent-onboarding)
 
 ```python
-# 1. Carregar este skill
-# 2. Seguir fluxo conversacional 3A → 3B → 3C → 3D
-# 3. Usar mbti_financial_profiles.py para perfil MBTI × finanças
-# 4. Usar csv_importer.py para importar extratos (modo preview → confirm → import)
-# 5. Registrar metas via MCP tools
-# 6. Salvar em user_profiles.financial_profile_completed = true
+# 1. Load this skill
+# 2. Follow conversational flow 3A → 3B → 3C → 3D
+# 3. Use mbti_financial_profiles.py for MBTI × finance profile
+# 4. Use csv_importer.py to import statements (preview → confirm → import)
+# 5. Register goals via MCP tools
+# 6. Save user_profiles.financial_profile_completed = true
 ```
 
 ---
 
-## Verificação
+## Verification
 
-1. Perfil MBTI × Finanças carrega para todos os 16 tipos
-2. CSV preview mostra resumo correto antes de importar
-3. Transações são importadas via REST API com categorização automática
-4. Metas são registradas via MCP tools
+1. MBTI × Finance profile loads for all 16 types
+2. CSV preview shows correct summary before importing
+3. Transactions are imported via REST API with automatic categorization
+4. Goals are registered via MCP tools
 
 ## Pitfalls
 
-1. **NUNCA importar CSV sem preview/confirmação do usuário**
-2. **NUNCA armazenar CSV bruto no Supabase ou em disco** — processar em memória
-3. **NUNCA logar dados financeiros completos** — só resumo
-4. **MBTI é orientativo, não determinístico** — o perfil financeiro do usuário pode divergir do tipo
-5. **Se usuário não tem conta Supabase configurada, ofertar análise textual em vez de registrar**
+1. **NEVER import CSV without user preview/confirmation**
+2. **NEVER store raw CSV in Supabase or on disk** — process in memory only
+3. **NEVER log full financial data** — summary only
+4. **MBTI is guidance, not deterministic** — the user's financial profile may differ from type
+5. **If user has no Supabase account configured, offer text-based analysis instead of registering**

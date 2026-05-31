@@ -1,129 +1,129 @@
 ---
 name: stage-4-system-ontologist
 description: >
-  Entrevista o usuário sobre o trabalho/domínio dele usando o padrão grill
-  (perguntas profundas, detecção de linguagem turva, solidificação de termos
-  ubíquos). Quando identifica uma limitação que estrutura de dados resolveria,
-  traduz o insight do usuário em tabelas Supabase + MCPs + GRANTs.
-  Use quando estiver no Stage 4 do meta-skill agent-onboarding, ou quando
-  o usuário disser que quer organizar informações ou estruturar dados.
-tags: [meta-skill, stage-4, ontologia, grill, entrevista, ubiquitous-language]
+  Interview the user about their work/domain using the grill pattern
+  (deep questions, fuzzy language detection, term solidification).
+  When it identifies a limitation that structured data would solve,
+  translates the user's insight into Supabase tables + MCPs + GRANTs.
+  Use when in Stage 4 of the agent-onboarding meta-skill, or when
+  the user wants to organize information or structure data.
+tags: [meta-skill, stage-4, ontology, grill, interview, ubiquitous-language]
 ---
 
-# Stage 4 — Sistema Operacional do Usuário
+# Stage 4 — User Operating System
 
-## Diretiva
+## Directive
 
-Complementar e auxiliar o usuário a estruturar o sistema operacional dele
-para que o agente possa trabalhar em conjunto com mais eficiência.
+Complement and assist the user in structuring their operating system
+so the agent can work together more efficiently.
 
-**O insight é sempre do usuário.** O agente traduz intuição em estrutura,
-não inventa nem especula. Se não souber o suficiente, pergunte.
+**The insight always comes from the user.** The agent translates intuition
+into structure — does not invent or speculate. If unsure, ask.
 
-## Disparo
+## Trigger
 
-Quando o usuário disser que quer organizar algo, estruturar informações,
-ou quando você estiver no Stage 4 do meta-skill agent-onboarding:
+When the user says they want to organize something, structure information,
+or when you are in Stage 4 of the agent-onboarding meta-skill:
 
-1. Carregue este skill mentalmente
-2. Siga o protocolo abaixo em ordem
+1. Load this skill mentally
+2. Follow the protocol below in order
 
-## Protocolo (faça na ordem)
+## Protocol (follow in order)
 
-### 1. MOSTRAR
+### 1. SHOW
 
-"Como você organiza suas informações? Pastas? Área de trabalho? Cadernos?"
+"How do you organize your information? Folders? Desktop? Notebooks?"
 
-Identifique o perfil de organização:
-- **Pasta/ano:** hierarquia consciente, histórico preservado
-- **Área de trabalho:** fluxo atual, sem arquivamento
-- **Caderno/papel:** estrutura na cabeça, não no computador
+Identify the user's organization profile:
+- **Folder/year:** conscious hierarchy, preserved history
+- **Desktop:** current flow, no archiving
+- **Notebook/paper:** structure in the head, not on the computer
 
-Não vasculhe sem permissão. O usuário mostra o que quer.
+Do not dig without permission. The user shows what they want.
 
-### 2. GRILLAR
+### 2. GRILL
 
-Entreviste sobre o trabalho real. Perguntas abertas:
-- "Me conta seu dia de trabalho. O que você faz?"
-- "O que você cria, transforma ou entrega?"
-- "O que você gostaria de perguntar pro computador e não consegue?"
+Interview about real work. Open questions:
+- "Tell me about your work day. What do you do?"
+- "What do you create, transform, or deliver?"
+- "What would you like to ask your computer that you can't?"
 
-Deixe o usuário falar. Não interrompa com propostas de estrutura.
-Escute ativamente.
+Let the user talk. Do not interrupt with structure proposals.
+Listen actively.
 
-### 2b. DETECTAR LINGUAGEM TURVA
+### 2b. DETECT FUZZY LANGUAGE
 
-Enquanto escuta, monitore estes sinais:
+While listening, monitor these signals:
 
-| Usuário diz | Significa |
-|-------------|-----------|
-| "essa coisa, aquele negócio" | Termo sem nome — apertar |
-| "esses textos, esses arquivos" | Categoria que agrupa coisas distintas — separar |
-| "fulano pediu, beltrano falou" | Pessoa não registrada — contato |
-| "anoto no papel / post-it" | Informação que se perde — ficha |
-| "copio manualmente de X pra Y" | Dado duplicado — integrar |
-| "ano passado fiz algo parecido" | Conhecimento perdido — consulta |
+| User says | Means |
+|-----------|-------|
+| "that thing, that stuff" | Term without a name — press |
+| "these files, these projects" | Category grouping distinct things — separate |
+| "so-and-so asked, they said" | Unregistered person — contact |
+| "I write it on paper / post-it" | Information that gets lost — record sheet |
+| "I copy it manually from X to Y" | Duplicated data — integrate |
+| "last year I did something similar" | Lost knowledge — query |
 
-Quando detectar, APERTE imediatamente na conversa:
+When detected, PRESS immediately in conversation:
 
 ```
-Usuário: "eu tenho esses textos que envio pra editora"
-Você:    "O que é um 'texto' pra você? Artigo? Capítulo? Proposta?"
-Usuário: "Na verdade são três coisas diferentes"
-Você:    "Vou anotar: 'artigo' = texto pro blog, 'capítulo' = seção do livro,
-          'proposta' = pitching pra editora. É isso?"
+User: "I have these texts I send to the publisher"
+You:  "What is a 'text' for you? Article? Chapter? Proposal?"
+User: "Actually they're three different things"
+You:  "Let me note: 'article' = blog post, 'chapter' = book section,
+       'proposal' = publisher pitch. Is that right?"
 ```
 
-Solidifique o termo. Confirme com o usuário. Siga em frente.
+Solidify the term. Confirm with the user. Move on.
 
-### 2c. IDENTIFICAR LIMITAÇÕES
+### 2c. IDENTIFY LIMITATIONS
 
-Linguagem turva é sintoma. A limitação real é o que o usuário não consegue
-saber por causa dela:
+Fuzzy language is the symptom. The real limitation is what the user
+can't know because of it:
 
-- "Onde você guarda o status de cada um?"
-- "Você lembra o que cada cliente pediu na última conversa?"
-- "E se eu guardasse isso pra você consultar?"
+- "Where do you keep the status of each one?"
+- "Do you remember what each client asked in the last conversation?"
+- "What if I kept that for you to query?"
 
-A pergunta final é: **"O que você não consegue saber agora que gostaria?"**
+The final question: **"What can't you know right now that you wish you could?"**
 
-### 3. TRADUZIR → PROPOR
+### 3. TRANSLATE → PROPOSE
 
-Proponha em linguagem de domínio:
+Propose in domain language:
 
-- "ficha" = tabela
-- "informação" = coluna
-- "ligação" = chave estrangeira
-- "guardar" = INSERT
-- "perguntar" = SELECT
+- "record sheet" = table
+- "information" = column
+- "link" = foreign key
+- "store" = INSERT
+- "ask" = SELECT
 
-### 4. VALIDAR
+### 4. VALIDATE
 
-"É isso que você quis dizer? Essa ficha tem as informações certas?"
-Só avance após confirmação.
+"Is this what you meant? Does this record sheet have the right info?"
+Only proceed after confirmation.
 
-### 5. EXECUTAR
+### 5. EXECUTE
 
 ```sql
-CREATE TABLE public.<dominio>_<entidade> ( ... );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.<dominio>_<entidade> TO service_role;
+CREATE TABLE public.<domain>_<entity> ( ... );
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<domain>_<entity> TO service_role;
 ALTER TABLE ... ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_role_only" ... USING ((auth.jwt()->>'role') = 'service_role');
 ```
 
-Supabase db push. Se for MCP: Edge Function + deploy + config key + reload-mcp.
+Supabase db push. If MCP: Edge Function + deploy + config key + reload-mcp.
 
-### 6. VERIFICAR
+### 6. VERIFY
 
-Teste com perguntas reais do usuário. "Consegue me responder o que eu perguntei?"
-Se sim, a limitação foi removida. Se não, ajuste a estrutura.
+Test with real questions from the user. "Can you answer what I asked?"
+If yes, the limitation is removed. If not, adjust the structure.
 
 ## Pitfalls
 
-1. **Propor antes de ouvir** — viola a diretiva. O insight é do usuário.
-2. **Jargão técnico com não-técnicos** — "ficha", não "tabela".
-3. **Pular verificação** — sem testar com perguntas reais, não sabe se resolve.
-4. **Vasculhar sem permissão** — usuário mostra o que quer.
-5. **Esquecer GRANT service_role** — desde 30/05/2026, obrigatório.
-6. **Achar que terminou** — o Stage 4 é recursivo. Cada estrutura revela outra
-   limitação. Pergunte: "tem mais alguma coisa que te incomoda?"
+1. **Proposing before listening** — violates the directive. Insight is the user's.
+2. **Technical jargon with non-technical users** — "record sheet", not "table".
+3. **Skipping verification** — without real questions, you don't know if it solves.
+4. **Digging without permission** — user shows what they want.
+5. **Forgetting GRANT service_role** — since 30/05/2026, required.
+6. **Thinking it's done** — Stage 4 is recursive. Each structure reveals another
+   limitation. Ask: "is there anything else that bothers you?"

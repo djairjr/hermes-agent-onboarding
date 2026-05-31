@@ -1,10 +1,8 @@
 # Silo — Foundations for Agent Identity Architecture
 
-**Source files:**
-- `/mnt/d/Users/djair/Downloads/Apuntes_pt/PSICOLOGIA_I_POR.doc` (173.5K)
-- `/mnt/d/Users/djair/Downloads/Apuntes_pt/PSICOLOGIA_II_POR.doc` (305K)
-- `/mnt/d/Users/djair/Downloads/Apuntes_pt/PSICOLOGIA_III_POR.doc` (143.5K)
-- `/mnt/d/Users/djair/Downloads/Contribuicoes ao pensamento.md` — "Contributions to Thought" (Psychology of the Image + Historiological Discussions, Silo Collected Works Vol I)
+**Sources:** Apontamentos de Psicologia (Vol I, II, III) + Contribuições ao Pensamento,
+by Silo. Available at [silo.net.br](https://silo.net.br/apontamentos-de-psicologia.html).
+Contribuições ao Pensamento in "Obras Completas" section.
 
 **Extracted by Djair + Hermes, 29/05/2026**
 **Purpose:** Foundational reference for the agent_self_identity category.

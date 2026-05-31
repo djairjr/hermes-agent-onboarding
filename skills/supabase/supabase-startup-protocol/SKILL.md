@@ -2,89 +2,89 @@
 name: supabase-startup-protocol
 version: 2.3.0
 description: >
-  Protocolo obrigatório de abertura E fechamento de sessão. Scan do Supabase
-  ao iniciar, checkpoint no Supabase ao encerrar cada tarefa, e consolidação
-  ao final da sessão. Nenhuma ação de trabalho deve ocorrer antes do scan.
-  v2.3.0: Pitfall PGRST301 resolvido permanentemente — instrução explícita
-  de como usar service_role_key com redact_secrets ativo.
-tags: [supabase, startup, shutdown, protocol, R22, session-init, checkpoint, triagem-semanal]
+  Mandatory session open AND close protocol. Scan Supabase on startup,
+  checkpoint to Supabase after each task, and consolidate at session end.
+  No work action may occur before the scan.
+  v2.3.0: PGRST301 pitfall permanently resolved — explicit instructions
+  for using service_role_key with redact_secrets enabled.
+tags: [supabase, startup, shutdown, protocol, R22, session-init, checkpoint, weekly-triage]
 ---
 
 # Supabase Startup + Shutdown Protocol
 
-## Ciclo Completo
+## Full Cycle
 
 ```
-STARTUP: scan Supabase → reportar estado → identificar pendências
+STARTUP: scan Supabase → report state → identify pending items
     ↓
-WORK:   executar tarefas
+WORK:   execute tasks
     ↓
-CHECKPOINT (por tarefa): registrar em session_checkpoints → fechar checkpoint anterior → atualizar supermemory
+CHECKPOINT (per task): record to session_checkpoints → close previous checkpoint → update supermemory
     ↓
-SHUTDOWN (fim da sessão): consolidar tudo → atualizar TOC
+SHUTDOWN (end of session): consolidate everything → update TOC
 ```
 
 ---
 
-# PARTE 1 — STARTUP (abertura de sessão)
+# PART 1 — STARTUP (session opening)
 
-## ⚠️ REGRA Nº 1 — ANTES DE QUALQUER CURL: Obter a service_role_key
+## ⚠️ RULE #1 — BEFORE ANY CURL: Get the service_role_key
 
-O Hermes tem `redact_secrets: true`. Isso significa que `grep`/`cat`/`read_file`
-no `secrets.env` MOSTRAM UMA VERSÃO REDACTADA com `***`, **não o valor real**.
+The Hermes configuration has `redact_secrets: true`. This means `grep`/`cat`/`read_file`
+on `secrets.env` SHOW A REDACTED VERSION with `***`, **not the real value**.
 
-### O ERRO QUE VOCÊ VAI COMETER SE NÃO LER ISSO
+### The mistake you will make if you skip this
 
-Você vai fazer `grep SUPABASE_SERVICE_ROLE_KEY secrets.env`, ver
-`sb_secret_***Ilff`, e escrever no seu curl:
+You will `grep SUPABASE_SERVICE_ROLE_KEY secrets.env`, see
+`sb_secret_***Ilff`, and write in your curl:
 
 ```bash
-curl -H "Authorization: Bearer ***   # ISSO CAUSA PGRST301
+curl -H "Authorization: Bearer ***   # THIS CAUSES PGRST301
 ```
 
-`$SUPAB...EY` NÃO é uma variável definida. É o texto redactado
-que você copiou visualmente. O shell não expande → valor literal
-`Bearer ***` → JWT com 1 parte em vez de 3 → `PGRST301`.
+`$SUPAB...EY` is NOT a defined variable. It is the redacted text
+you visually copied. The shell does not expand it → literal value
+`Bearer ***` → JWT with 1 part instead of 3 → `PGRST301`.
 
-### A SOLUÇÃO (vale pra sempre)
+### The fix (lasts forever)
 
 ```bash
-# SEMPRE source o arquivo primeiro
+# ALWAYS source the file first
 source ~/.hermes/secrets.env
 
-# Use o nome CORRETO da variável — ele existe e o shell expande o valor real
+# Use the CORRECT variable name — it exists and the shell expands the real value
 curl -s "$SUPABASE_URL/rest/v1/session_checkpoints?select=count" \
   -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer *** \
-  -H "Prefer: count=exact"   # ✅ FUNCIONA
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H "Prefer: count=exact"   # ✅ WORKS
 ```
 
-### Teste de verificação
+### Verification test
 
 ```bash
 source ~/.hermes/secrets.env
 echo "len: ${#SUPABASE_SERVICE_ROLE_KEY} start: ${SUPABASE_SERVICE_ROLE_KEY:0:3} end: ${SUPABASE_SERVICE_ROLE_KEY: -3}"
-# Deve mostrar ~41 chars, sb_, e 3 chars reais sem ***
+# Should show ~41 chars, sb_, and 3 real chars without ***
 ```
 
 ---
 
-## Quando executar
+## When to run
 
-**Sempre** no início de cada sessão. Primeira ação. Inegociável.
+**Always** at the start of every session. First action. Non-negotiable.
 
-⚠️ **REGRRA DE ENFORCEMENT (após falha em 25/05):**
-- Se o usuário fizer uma pergunta no primeiro turno sem que eu tenha executado o scan,
-  eu DEVO responder EXCLUSIVAMENTE: "Aguarde, preciso executar o scan do Supabase primeiro."
-  e SÓ ENTÃO fazer as tool calls do scan.
-- O scan PRECEDE qualquer resposta substantiva.
-- NENHUMA resposta ao usuário antes do scan completo.
-- Se o usuário disser "O que estávamos fazendo?" → scan primeiro, resposta depois.
+⚠️ **ENFORCEMENT RULE (after failure on 05/25):**
+- If the user asks a question on the first turn before the scan has been executed,
+  I MUST respond EXCLUSIVELY with: "Please wait, I need to run the Supabase scan first."
+  and ONLY THEN make the scan tool calls.
+- The scan MUST PRECEDE any substantive response.
+- NO response to the user before the scan is complete.
+- If the user says "What were we working on?" → scan first, answer after.
 
-## Etapa 1 — Scan de estado geral (paralelo)
+## Step 1 — General state scan (parallel)
 
-Chame TODOS estes MCP tools em paralelo no primeiro turno.
-**IMPORTANTE:** as tool calls DEVEM ser o primeiro conteúdo da resposta. Não escreva texto antes das chamadas.
+Call ALL of these MCP tools in parallel on the first turn.
+**IMPORTANT:** the tool calls MUST be the first content in the response. Do not write text before the calls.
 
 ```python
 mcp_tech_kb_get_kb_summary()
@@ -93,122 +93,122 @@ mcp_product_catalog_list_products()
 mcp_escape_catalog_get_catalog_summary()
 ```
 
-## Etapa 2 — Buscar tarefas pendentes (checkpoints)
+## Step 2 — Fetch pending checkpoints
 
-Após source secrets.env, consultar:
+After sourcing secrets.env, query:
 
 ```bash
-curl -s "$SUPABASE_URL/rest/v1/session_checkpoints?select=id,project,territory,vector_intent,next_step,status,operating_mode&status=eq.pendente&deleted_at=is.null&order=occurred_at.desc&limit=10" \
+curl -s "$SUPABASE_URL/rest/v1/session_checkpoints?select=id,project,territory,vector_intent,next_step,status,operating_mode&status=eq.pending&deleted_at=is.null&order=occurred_at.desc&limit=10" \
   -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -H "Authorization: Bearer ***
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
 ```
 
-Campos úteis: `id`, `project`, `territory`, `vector_intent`, `next_step`,
+Useful fields: `id`, `project`, `territory`, `vector_intent`, `next_step`,
 `status`, `operating_mode`, `discovery`, `consolidated_insights`, `tags`
 
-**Nota:** `session_checkpoints` substitui `thoughts` com `entry_type = 'task_checkpoint'`.
-`thoughts` é exclusivamente funil de entrada (ideias soltas, sem classificação).
+**Note:** `session_checkpoints` supersedes `thoughts` with `entry_type = 'task_checkpoint'`.
+`thoughts` is exclusively an input funnel (loose ideas, unclassified).
 
-## Etapa 3 — Reportar ao usuário
+## Step 3 — Report to the user
 
 ```
 === SUPABASE STARTUP ===
-📚 tech_kb:     <N> entries (última: <nome>)
-🔧 code-analyzer: <N> projetos, <N> snapshots
-📦 produtos:     <N> ativos
-🧩 escape rooms: <N> salas
-📋 pendências:   <N> checkpoints abertos (session_checkpoints)
+📚 tech_kb:     <N> entries (latest: <name>)
+🔧 code-analyzer: <N> projects, <N> snapshots
+📦 products:     <N> active
+🧩 escape rooms: <N> rooms
+📋 pending:      <N> open checkpoints (session_checkpoints)
 ```
 
-Se alguma chamada falhar: reportar como ⚠️ e continuar.
+If any call fails: report as ⚠️ and continue.
 
 ---
 
-# PARTE 2 — CHECKPOINT (por tarefa concluída)
+# PART 2 — CHECKPOINT (per completed task)
 
-## Quando executar
+## When to run
 
-Ao final de CADA tarefa ou sub-tarefa significativa. **Não** esperar o fim
-da sessão para registrar.
+At the end of EACH significant task or sub-task. **Do not** wait until
+the end of the session to record.
 
-## Campos obrigatórios do checkpoint
+## Required checkpoint fields
 
-| Campo | Obrigatório | Descrição |
-|-------|-------------|-----------|
-| `territory` | sim | O cenário maior: onde o agente estava |
-| `operating_mode` | sim | Como interagiu com o problema |
-| `vector_intent` | sim | O que estava tentando se tornar |
-| `discovery` | sim | O que descobriu sobre si mesmo |
-| `consolidated_insights` | sim | O que carrega adiante |
-| `occurred_at` | sim | Data do checkpoint |
-| `status` | sim | pendente / concluida / bloqueada / cancelada |
-| `next_step` | sim | Próxima ação necessária |
+| Field | Required | Description |
+|-------|----------|-------------|
+| `territory` | yes | The larger scenario: where the agent was |
+| `operating_mode` | yes | How it interacted with the problem |
+| `vector_intent` | yes | What it was trying to become |
+| `discovery` | yes | What it discovered about itself |
+| `consolidated_insights` | yes | What it carries forward |
+| `occurred_at` | yes | Checkpoint date |
+| `status` | yes | pending / completed / blocked / cancelled |
+| `next_step` | yes | Next required action |
 
-## Comportamento esperado
+## Expected behavior
 
-- **Sempre** registrar checkpoint após concluir uma tarefa
-- **Sempre** incluir os 5 campos de identidade — sem eles o checkpoint
-  não serve para reidratação de contexto
-- **Sempre** incluir `next_step` — sem isso o checkpoint não orienta
-- **Sempre** fechar o checkpoint anterior pendente
-- **Nunca** registrar checkpoint vazio ("trabalhei" sem conteúdo)
-
----
-
-# PARTE 3 — SHUTDOWN (fim da sessão)
-
-## Quando executar
-
-Quando detectar que a sessão está encerrando:
-- Usuário digita `/quit`, `/exit`, `/new`
-- Usuário diz explicitamente "vou parar por aqui", "até amanhã"
-- Após longa inatividade (timeout da sessão)
-
-## O que fazer
-
-1. Salvar checkpoint com os 5 campos de identidade
-2. Fechar checkpoint anterior pendente (UPDATE status='concluida')
-3. Atualizar Supermemory com resumo
-4. Atualizar TOC no tech_kb se houve mudanças estruturais
+- **Always** record a checkpoint after completing a task
+- **Always** include all 5 identity fields — without them the checkpoint
+  is useless for context rehydration
+- **Always** include `next_step` — without it the checkpoint provides no direction
+- **Always** close the previous pending checkpoint
+- **Never** record an empty checkpoint ("I worked" with no content)
 
 ---
 
-# PARTE 4 — TRIAGEM SEMANAL DE THOUGHTS
+# PART 3 — SHUTDOWN (end of session)
 
-Toda **segunda-feira** após o STARTUP scan. Thoughts é funil de ENTRADA,
-não de armazenamento. Consolidar ideias nos destinos permanentes e remover.
+## When to run
+
+When detecting the session is ending:
+- User types `/quit`, `/exit`, `/new`
+- User explicitly says "I'll stop here", "see you tomorrow", "good night"
+- After prolonged inactivity (session timeout)
+
+## What to do
+
+1. Save checkpoint with all 5 identity fields
+2. Close previous pending checkpoint (UPDATE status='completed')
+3. Update Supermemory with summary
+4. Update TOC in tech_kb if there were structural changes
 
 ---
 
-# PARTE 5 — AUTOMAÇÃO
+# PART 4 — WEEKLY THOUGHTS TRIAGE
 
-Djair usa `ollama launch hermes`. O wrapper `~/.local/bin/hermes` gerencia
-o comando real. **Não substituir.** Editar o wrapper para skills ou manter
-invocação manual por `--skills`.
+Every **Monday** after the STARTUP scan. Thoughts is an INPUT funnel,
+not a storage layer. Consolidate ideas into permanent destinations and remove.
 
 ---
 
-## Integração com regras-de-ouro
+# PART 5 — AUTOMATION
 
-- **R22**: implementação executável — Supabase primeiro, sempre
-- **R8**: skill documentado que cobre o domínio, validado pelo usuário
-- **R4**: checklist visível de estado antes de começar
-- **R10**: autorização aguardada sem timeout durante o scan
-- **R24**: panorama multi-sistema antes de responder sobre pendências
+Djair uses `ollama launch hermes`. The wrapper `~/.local/bin/hermes` manages
+the actual command. **Do not replace.** Edit the wrapper for skills or keep
+manual invocation via `--skills`.
+
+---
+
+## Integration with regras-de-ouro (golden rules)
+
+- **R22**: executable implementation — Supabase first, always
+- **R8**: documented skill covering the domain, validated by the user
+- **R4**: visible state checklist before starting
+- **R10**: authorization waited for without timeout during scan
+- **R24**: multi-system overview before answering about pending items
 
 ## Pitfalls
 
-1. **Esquecer de executar** — o protocolo DEVE ser o primeiro bloco de tool calls
-2. **Pular quando o usuário já deu tarefa específica** — execute o scan primeiro
-3. **Achar que "lembra"** — não confie na memória de sessão. Consulte o Supabase.
-4. **Checkpoint sem `proximo_passo`** — inútil. Sempre preencher.
-5. **Shutdown sem consolidar** — pelo menos o último checkpoint foi salvo.
-6. **Supermemory lotada** — priorizar checkpoint mais recente e próximo_passo.
-7. **NUNCA** `grep/read_file` no secrets.env — o valor é redactado.
-   SEMPRE `source ~/.hermes/secrets.env` e use `$SUPABASE_SERVICE_ROLE_KEY`
-   (que é o nome REAL da variável, não um texto redactado).
+1. **Forgetting to run** — the protocol MUST be the first block of tool calls
+2. **Skipping it when the user already gave a specific task** — run the scan first
+3. **Assuming you "remember"** — do not trust session memory. Query Supabase.
+4. **Checkpoint without `next_step`** — useless. Always fill it in.
+5. **Shutdown without consolidating** — at least the last checkpoint was saved.
+6. **Supermemory full** — prioritize most recent checkpoint and next_step.
+7. **NEVER** `grep/read_file` on secrets.env — the value is redacted.
+   ALWAYS `source ~/.hermes/secrets.env` and use `$SUPABASE_SERVICE_ROLE_KEY`
+   (which is the REAL variable name, not a redacted text).
 
-## Pitfall de Edição do Hermes Config — Consulte tech_kb `81c48035`
+## Pitfall of Editing Hermes Config — Consult tech_kb `81c48035`
 
-🔗 **tech_kb entry `81c48035`** — "Protocolo de Edição do Hermes
-   Config.yaml + .env — Todos os Pitfalls"
+🔗 **tech_kb entry `81c48035`** — "Hermes Config.yaml + .env Editing
+   Protocol — All Pitfalls"

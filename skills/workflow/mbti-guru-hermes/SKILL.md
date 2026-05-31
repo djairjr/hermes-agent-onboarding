@@ -2,108 +2,108 @@
 name: mbti-guru-hermes
 version: 1.0.0
 description: >
-  Motor de MBTI para Hermes dentro do meta-skill orquestrador (agent-onboarding).
-  Administra o teste MBTI Guru completo em conversa — perguntas A/B, scoring
-  idêntico ao original, descrições dos 16 tipos em português brasileiro.
-  4 versões: Quick (70q), Standard (93q), Extended (144q), Professional (200q).
+  MBTI engine for Hermes within the orchestrator meta-skill (agent-onboarding).
+  Administers the full MBTI Guru test in conversation — A/B questions, scoring
+  identical to the original, descriptions of all 16 types in English.
+  4 versions: Quick (70q), Standard (93q), Extended (144q), Professional (200q).
 tags: [mbti, guru, personality, test, conversation, stage-1c, meta-skill]
 ---
 
-# MBTI Guru Hermes — Motor de Tipagem por Conversa
+# MBTI Guru Hermes — Typing Engine for Conversation
 
-## Propósito
+## Purpose
 
-Este skill permite que o Hermes administre o teste MBTI Guru completo
-diretamente em conversa. O agente pergunta cada questão no formato A/B,
-acumula as respostas por dimensão (E/I, S/N, T/F, J/P), calcula o tipo
-com o scoring idêntico ao Guru original, e registra o resultado em
-`user_mbti` no Supabase.
+This skill enables Hermes to administer the full MBTI Guru test
+directly in conversation. The agent asks each question in A/B format,
+accumulates responses by dimension (E/I, S/N, T/F, J/P), calculates
+the type using scoring identical to the original Guru, and records
+the result in `user_mbti` in Supabase.
 
-## Arquivos do Skill
+## Skill Files
 
-| Arquivo | Função |
+| File | Role |
 |---------|--------|
-| `questions_pt_BR.py` | Banco com 200 perguntas em português (4 versões: 70, 93, 144, 200) |
-| `scorer.py` | Scoring idêntico ao Guru original |
-| `types_pt_BR.py` | 16 tipos com descrições em português brasileiro |
+| `questions_pt_BR.py` | Database of 200 questions in Portuguese (4 versions: 70, 93, 144, 200) |
+| `scorer.py` | Scoring identical to the original Guru |
+| `types_pt_BR.py` | 16 types with descriptions in Brazilian Portuguese |
 
 ---
 
-## PARTE 1 — FLUXO CONVERSACIONAL
+## PART 1 — CONVERSATIONAL FLOW
 
-### 1. Introdução
-
-```
-Você: "Conhece o MBTI? Sabe qual é seu tipo?"
-```
-
-**Se conhece:** pedir o tipo e validar com 4 perguntas rápidas
-(uma de cada dimensão).
-
-**Se não conhece:** explicar as 4 dimensões e oferecer as 4 versões:
+### 1. Introduction
 
 ```
-"MBTI tem 4 dimensões:
-• Energia: Extroversão (E) vs Introversão (I)
-• Informação: Sensorial (S) vs Intuição (N)
-• Decisão: Racional (T) vs Emocional (F)
-• Estrutura: Julgador (J) vs Perceptivo (P)
-
-No total são 16 tipos de personalidade.
-
-O MBTI Guru oferece 4 versões do teste:
-1. Rápido — 70 perguntas (~10 min)
-2. Padrão — 93 perguntas (~15 min)
-3. Estendido — 144 perguntas (~25 min)
-4. Profissional — 200 perguntas (~35 min)
-
-Qual você prefere?"
+You: "Do you know MBTI? Do you know your type?"
 ```
 
-### 2. Administração do Teste
+**If they know:** ask for their type and validate with 4 quick questions
+(one per dimension).
 
-**A cada pergunta:**
+**If they don't know:** explain the 4 dimensions and offer the 4 versions:
+
 ```
-Pergunta X/N:
-[A] <opção A>
-[B] <opção B>
+"MBTI has 4 dimensions:
+• Energy: Extraversion (E) vs Introversion (I)
+• Information: Sensing (S) vs Intuition (N)
+• Decision: Thinking (T) vs Feeling (F)
+• Structure: Judging (J) vs Perceiving (P)
 
-Responda A ou B:
+There are 16 personality types in total.
+
+MBTI Guru offers 4 test versions:
+1. Quick — 70 questions (~10 min)
+2. Standard — 93 questions (~15 min)
+3. Extended — 144 questions (~25 min)
+4. Professional — 200 questions (~35 min)
+
+Which one would you like?"
 ```
 
-**Aguardar resposta.** Só avançar após receber A ou B.
-Se resposta ambígua: "Responda apenas A ou B."
+### 2. Test Administration
 
-**Armazenar internamente:**
+**Each question:**
+```
+Question X/N:
+[A] <option A>
+[B] <option B>
+
+Reply A or B:
+```
+
+**Wait for response.** Only proceed after receiving A or B.
+If ambiguous: "Reply only A or B."
+
+**Store internally:**
 ```python
 answers = [(1, "A"), (2, "B"), ...]  # (question_id, selected_option)
 ```
 
-### 3. Finalização
+### 3. Finalization
 
-Após a última pergunta:
+After the last question:
 
 ```python
 type_code, scores = calculate_type(answers)
 ```
 
-Exibir resultado:
+Display result:
 ```
-=== RESULTADO MBTI ===
-Seu tipo: {type_code} — {nome_pt_BR}
+=== MBTI RESULT ===
+Your type: {type_code} — {name}
 
-Dimensões:
+Dimensions:
 • E/I: {score_EI}% ({pref}) — {clarity_level}
 • S/N: {score_SN}% ({pref}) — {clarity_level}
 • T/F: {score_TF}% ({pref}) — {clarity_level}
 • J/P: {score_JP}% ({pref}) — {clarity_level}
 
-{summary_pt_BR}
+{summary}
 ```
 
-### 4. Registro no Supabase
+### 4. Registration in Supabase
 
-Inserir em `user_mbti`:
+Insert into `user_mbti`:
 
 ```json
 {
@@ -119,31 +119,31 @@ Inserir em `user_mbti`:
 
 ---
 
-## PARTE 2 — SCORING (idêntico ao Guru original)
+## PART 2 — SCORING (identical to original Guru)
 
-### Lógica
+### Logic
 
 ```python
 def calculate_type(answers):
-    # 1. Determinar versão pelo número de respostas
-    # 2. Para cada dimensão (EI, SN, TF, JP), contar:
-    #    - respostas que favorecem o primeiro polo
-    #    - total de perguntas respondidas na dimensão
+    # 1. Determine version by number of answers
+    # 2. For each dimension (EI, SN, TF, JP), count:
+    #    - answers favoring the first pole
+    #    - total questions answered in that dimension
     # 3. score = (first_pole_count / total) * 100
-    # 4. Se score > 50: a letra é o primeiro polo
-    #    Se score < 50: a letra é o segundo polo
+    # 4. If score > 50: letter is the first pole
+    #    If score < 50: letter is the second pole
     # 5. type_code = EI_letter + SN_letter + TF_letter + JP_letter
     # 6. clarity = abs(score - 50) * 2
 ```
 
-### Níveis de Clareza
+### Clarity Levels
 
-| Clarity | Nível |
+| Clarity | Level |
 |---------|-------|
-| ≤ 25% | Leve |
-| ≤ 50% | Moderada |
-| ≤ 75% | Clara |
-| > 75% | Muito Clara |
+| ≤ 25% | Slight |
+| ≤ 50% | Moderate |
+| ≤ 75% | Clear |
+| > 75% | Very Clear |
 
 ---
 
@@ -177,13 +177,13 @@ CREATE TABLE user_mbti (
 
 ---
 
-## PARTE 4 — EXECUÇÃO AUTÔNOMA (modo prompt / script)
+## PART 4 — AUTONOMOUS EXECUTION (prompt / script mode)
 
-### Função `run_mbti_test()`
+### `run_mbti_test()` function
 
-O skill pode ser executado sem estabelecer contexto direto com o usuário
-atual — por exemplo, para que outra pessoa realize o teste via mensagem
-encaminhada, ou para testes automatizados em lote.
+The skill can be executed without establishing direct context with the current
+user — for example, so another person can take the test via forwarded message,
+or for automated batch testing.
 
 ```python
 import sys, os
@@ -195,7 +195,7 @@ from types_pt_BR import get_type
 
 def run_mbti_test(answers: list, version: int = 70) -> dict:
     """
-    Executa o teste MBTI completo sem interação.
+    Runs the complete MBTI test without interaction.
 
 
     Args:
@@ -253,27 +253,27 @@ print(''.join(result['summary_pt_BR']))
 
 ### Como usar em conversa
 
-Para administrar o teste diretamente em conversa com o usuário:
+To administer the test directly in conversation with the user:
 
 1. **Importar o banco de perguntas:**
    ```python
-   sys.path.insert(0, '/home/djairguilherme/.hermes/skills/workflow/mbti-guru-hermes')
+   sys.path.insert(0, '<hermes_skills_dir>/workflow/mbti-guru-hermes')
    from questions_pt_BR import get_questions, get_question_count
    from scorer import calculate_type, format_scores, calculate_clarity
    from types_pt_BR import get_type
    ```
 
-2. **Obter perguntas da versão escolhida:**
+2. **Get questions from the chosen version:**
    ```python
-   questions = get_questions(70)  # ou 93, 144, 200
+   questions = get_questions(70)  # or 93, 144, 200
    ```
 
-3. **Perguntar uma a uma em conversa**, acumulando respostas:
+3. **Ask one by one in conversation**, accumulating answers:
    ```python
    answers = []  # [(q_id, "A"|"B"), ...]
    ```
 
-4. **Ao final, calcular e exibir:**
+4. **At the end, calculate and display:**
    ```python
    type_code, scores = calculate_type(answers, get_questions(len(answers)))
    tdata = get_type(type_code)
@@ -282,17 +282,17 @@ Para administrar o teste diretamente em conversa com o usuário:
 
 ---
 
-## Verificação
+## Verification
 
-1. Perguntas 1-70 carregam corretamente: `len(get_questions(70)) == 70`
-2. Scoring reproduz resultado do Guru para entradas conhecidas
-3. Todos os 16 tipos têm descrição em pt-BR
-4. Registro em `user_mbti` persiste no Supabase
+1. Questions 1-70 load correctly: `len(get_questions(70)) == 70`
+2. Scoring reproduces the Guru result for known inputs
+3. All 16 types have descriptions available (e.g. `types_pt_BR.py` for pt-BR locale)
+4. Registration in `user_mbti` persists in Supabase
 
 ## Pitfalls
 
-1. **Nunca pular perguntas** — cada pergunta conta para o score de uma dimensão
-2. **Nunca reduzir versões** — 70/93/144/200 são fixas, cada uma com contagem exata
-3. **Nunca interpretar resposta** — aceitar só "A" ou "B", sem nuances
-4. **Nunca resumir o resultado** — exibir scores completos + descrição
-5. **Não confundir preference_a com resposta certa** — não há resposta certa, é preferência
+1. **Never skip questions** — each question contributes to a dimension score
+2. **Never reduce versions** — 70/93/144/200 are fixed, each with exact counts
+3. **Never interpret answers** — accept only "A" or "B", no nuances
+4. **Never summarize the result** — show full scores + description
+5. **Do not confuse preference_a with correct answer** — there is no correct answer, it's preference

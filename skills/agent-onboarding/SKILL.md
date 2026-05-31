@@ -152,16 +152,16 @@ Protocol:
    Which do you prefer?"
 
    **MBTI Guru Hermes** (`skills/workflow/mbti-guru-hermes/`) — Stage 1C:
-- `questions_pt_BR.py` — 200 perguntas em português (4 versões: 70, 93, 144, 200)
-- `scorer.py` — scoring idêntico ao Guru original (proporção por dimensão, clarity = abs(score-50)*2)
-- `types_pt_BR.py` — 16 tipos com descrições completas em pt-BR
-- `run_mbti_test.py` — módulo autônomo para execução sem interação conversacional
-- SKILL.md — protocolo conversacional + modo autônomo
+- `questions_pt_BR.py` — 200 questions in pt-BR (4 versions: 70, 93, 144, 200)
+- `scorer.py` — scoring identical to original Guru (proportion per dimension, clarity = abs(score-50)*2)
+- `types_pt_BR.py` — 16 types with full descriptions in pt-BR
+- `run_mbti_test.py` — autonomous module for execution without conversational interaction
+- SKILL.md — conversational protocol + autonomous mode
 
 **How to invoke in conversation:**
 ```python
 import sys
-sys.path.insert(0, '/home/djairguilherme/.hermes/skills/workflow/mbti-guru-hermes')
+sys.path.insert(0, '<hermes_skills_dir>/workflow/mbti-guru-hermes')
 from questions_pt_BR import get_questions, get_question_count
 from scorer import calculate_type, format_scores, calculate_clarity
 from types_pt_BR import get_type
@@ -177,13 +177,11 @@ No CLI, no script — pure conversation with the Hermes agent
 acting as the test administrator.
 
 5. After answers → calculate score per dimension → determine type
-6. **pt-BR is required for type descriptions.** The Guru's original files
-   have only `_cn` and `_en` fields. You MUST present type descriptions in
-   **Brazilian Portuguese** during the conversation. The `types_pt_BR.py`
-   file has every type with `name_pt_BR`, `summary_pt_BR`, `strengths_pt_BR`,
-   `weaknesses_pt_BR`, and `careers_pt_BR`. Use `get_type().get("field", "")`
-   to retrieve them.
-   English or Chinese output alone is a format violation for this user.
+6. After determining type, generate a full description from the MBTI Guru's
+   type descriptions. The Guru has `_cn` (Chinese) and `_en` (English) fields.
+   If `user_preferences.locale` exists and has a locale preference, use it
+   (e.g. `types_pt_BR.py` for `pt-BR`, or any locale-specific type file).
+   Otherwise default to English.
 7. Register in user_mbti + update user_profiles.mbti_type
 
 **Scoring logic (identical to MBTI Guru):**
@@ -246,11 +244,11 @@ Data-driven stage: CSV import → MBTI-based profile → goals → strategies.
 
 | Component | Type | Location |
 |-----------|------|----------|
-| `mbti_financial_profiles.py` | Python module | 16 perfis financeiros MBTI em pt-BR com assess_financial_personality() |
-| `csv_importer.py` | Python module | Importador de CSV bancário (Nubank, Itaú, Inter, Caixa, genérico) |
-| SKILL.md | Skill doc | Protocolo conversacional completo para Stage 3 |
-| supabase-finance MCP | 17 MCP tools | Contas, transações, categorias, metas, orçamentos |
-| supabase-worklog MCP | Work log tools | Registro de trabalho com valor financeiro |
+| `mbti_financial_profiles.py` | Python module | 16 MBTI financial profiles in pt-BR with assess_financial_personality() |
+| `csv_importer.py` | Python module | Bank CSV importer (Nubank, Itaú, Inter, Caixa, generic) |
+| SKILL.md | Skill doc | Complete conversational protocol for Stage 3 |
+| supabase-finance MCP | 17 MCP tools | Accounts, transactions, categories, goals, budgets |
+| supabase-worklog MCP | Work log tools | Work logging with financial value |
 
 ### 3A — CSV Import (csv_importer.py)
 
@@ -285,245 +283,241 @@ Combine MBTI profile + goals into actionable recommendations:
 
 ---
 
-## STAGE 4 — Sistema Operacional do Usuário (Generativo)
+## STAGE 4 — User Operating System (Generative)
 
-**Diretiva primordial:** Complementar e auxiliar o usuário a estruturar seu
-sistema operacional de modo que o agente possa trabalhar em conjunto com mais
-eficiência.
+**Primary directive:** Complement and assist the user in structuring their
+operating system so the agent can work together more efficiently.
 
-**Quem propõe:** O usuário. O insight é sempre dele.
-**Quem executa:** O agente — traduz intuição em estrutura de dados.
+**Who proposes:** The user. The insight is always theirs.
+**Who executes:** The agent — translates intuition into data structures.
 
-### Contexto (por que este estágio existe)
+### Context (why this stage exists)
 
-O computador de uma pessoa é a materialização digital da vida dela. O sistema
-de arquivos — pastas, documentos, CSVs, fotos, HDs externos — é onde essa vida
-vive. Mas pastas enterram arquivos, informações se perdem entre anos, e o que
-deveria ser uma consulta vira uma busca de 20 minutos em 12 diretórios.
+A person's computer is the digital materialization of their life. The file
+system — folders, documents, CSVs, photos, external drives — is where that
+life lives. But folders bury files, information gets lost across years, and
+what should be a query becomes a 20-minute search through 12 directories.
 
-O agente opera com excelência em estruturas relacionais (tabelas, schemas,
-MCPs). O usuário opera com excelência na intuição sobre o próprio trabalho.
-O Stage 4 é a ponte entre os dois.
+The agent operates with excellence in relational structures (tables, schemas,
+MCPs). The user operates with excellence in intuition about their own work.
+Stage 4 is the bridge between the two.
 
-A progressão não é técnica — é ontológica:
+The progression is not technical — it is ontological:
 ```
-CÓDIGO → ARQUIVOS → FINANÇAS → CLIENTES → ...
-(o fazer)  (o histórico)  (sustentabilidade)  (relações)
-```
-
-Cada camada revela uma limitação que o usuário talvez nunca tenha articulado.
-O agente não substitui o pensamento do usuário — ele materializa em estrutura
-o que o usuário já sente que precisa.
-
-**Mas não são tabelas isoladas.** O poder emerge quando elas se conectam:
-```
-Cliente → Venda → Produto → Componentes → Fornecedores
-   ↓                                                   
-Financeiro ← Orçamento ← Horas trabalhadas             
-   ↓                                                   
-Metas financeiras × Perfil MBTI                        
-   ↓                                                   
-Estratégias de carreira × MindMaze                     
+CODE → FILES → FINANCES → CLIENTS → ...
+(doing)  (history)  (sustainability)  (relationships)
 ```
 
-Cada nova tabela se vincula às anteriores. O contexto se torna
-**multi-dimensional** — o agente não responde só "qual é o preço do
-produto X", mas "quanto lucro tive com vendas pro cliente Y no último
-trimestre?". Porque as tabelas conversam entre si.
+Each layer reveals a limitation the user may never have articulated.
+The agent does not replace the user's thinking — it materializes into
+structure what the user already feels they need.
 
-O resultado prático: **explicar algo ao agente fica mais simples a cada
-estrutura adicionada.** O contexto vem imediatamente — não porque o
-agente "lembra", mas porque os dados estão vinculados. A pergunta que
-antes exigia 3 consultas manuais vira uma conversa.
-
-### Protocolo
-
-6 passos, sempre nesta ordem:
-
-#### 1. MOSTRAR
-
-"Me mostre como você trabalha. Como você organiza suas informações?"
-
-Cada pessoa tem sua própria estrutura. O agente não impõe uma. Descobre:
-
-- **Tipo pasta/ano:** "Organizo por cliente, dentro por ano" → hierarquia de diretórios, histórico
-- **Tipo área de trabalho:** "Deixo tudo na área de trabalho / abas do navegador" → o trabalho é o fluxo atual, sem arquivamento
-- **Tipo caderno:** "Anoto tudo num bloco de notas / papel" → a estrutura está na cabeça, não no computador
-
-O agente pergunta como a pessoa ORGANIZA, não como ela DEVERIA organizar.
-A estrutura de dados proposta deve refletir o jeito dela — não substituí-lo.
-
-**Regra:** NUNCA vasculhar sem permissão. O usuário mostra, o agente olha.
-
-#### 2. GRILLAR (entrevista profunda)
-
-O agente entrevista o usuário sobre o trabalho real. Não pergunta sobre
-entidades ou esquemas — pergunta sobre o que a pessoa FAZ.
-
-**Perguntas abertas para começar:**
-
-- "Me conta como é seu dia de trabalho. O que você faz?"
-- "O que você cria, transforma ou entrega?"
-- "Com quem você se relaciona no trabalho? Clientes? Fornecedores? Parceiros?"
-- "O que você precisa saber para fazer seu trabalho?"
-- "O que você gostaria de perguntar pro computador e não consegue?"
-
-**O agente escuta ativamente.** Não interrompe com propostas de estrutura.
-Deixa o usuário falar. É na fala do usuário que aparecem os sintomas.
-
-#### 2b. DETECTAR LINGUAGEM TURVA (o motor do grill)
-
-Enquanto o usuário fala, o agente monitora sinais de linguagem imprecisa:
-
-| O usuário diz... | O agente pensa... |
-|-----------------|-------------------|
-| "essa coisa, aquele negócio, o bagulho" | Termo sem nome — candidato a entidade |
-| "esses textos, esses arquivos, esses projetos" | Categoria não definida — agrupa coisas distintas |
-| "fulano pediu, beltrano falou" | Pessoa não registrada — candidato a contato |
-| "teve um problema com o prazo" | Evento sem rastro — candidato a histórico |
-| "eu anoto no papel / bloco de notas / post-it" | Informação que se perde — candidato a ficha |
-| "eu copio manualmente de [X] para [Y]" | Dado duplicado — candidato a integração |
-| "ano passado eu fiz algo parecido mas não lembro" | Conhecimento perdido — candidato a consulta |
-
-**Quando detecta linguagem turva, o agente APERTA imediatamente:**
-
+**But they are not isolated tables.** Power emerges when they connect:
 ```
-Usuário: "eu tenho esses textos que escrevo e envio pra editora"
-Agente: "O que é um 'texto' pra você? Um artigo? Um capítulo? Uma proposta?"
-Usuário: "Na verdade são três coisas diferentes — artigos pro blog, 
-          capítulos do livro, e propostas pra editoras"
-Agente: "Entendi. Então temos três tipos diferentes. Vou anotar:
-
-📄 UBÍQUO: 'artigo' = texto curto publicado no blog
-📄 UBÍQUO: 'capítulo' = seção de livro em andamento  
-📄 UBÍQUO: 'proposta' = documento de pitching para editora
-
-É isso? Você usa nomes diferentes pra cada um?"
+Client → Sale → Product → Components → Suppliers
+   ↓
+Finance ← Budget ← Hours worked
+   ↓
+Financial goals × MBTI Profile
+   ↓
+Career strategies × MindMaze
 ```
 
-**Isso gera linguagem compartilhada na hora.** O usuário e o agente
-passam a usar os mesmos termos. O `UBIQUITOUS_LANGUAGE.md` nasce
-naturalmente da conversa — não é um documento em separado, é o
-registro dos termos que o grill solidificou.
+Each new table links to previous ones. Context becomes **multi-dimensional**
+— the agent doesn't just answer "what's the price of product X", but
+"how much profit did I make from client Y last quarter?" Because the
+tables talk to each other.
 
-#### 2c. IDENTIFICAR LIMITAÇÕES
+The practical result: **explaining something to the agent gets simpler
+with each structure added.** Context comes immediately — not because the
+agent "remembers", but because the data is linked.
 
-A linguagem turva é o **sintoma**. A limitação real é o que o usuário
-não consegue fazer por causa dela:
+### Protocol
 
-- "Você falou de 3 tipos de texto. Onde você guarda o status de cada um?"
-- "Você mencionou 5 clientes. Você lembra o que cada um pediu na última conversa?"
-- "Você disse que pesquisa fornecedores toda vez. E se eu guardasse os que você já usou?"
+6 steps, always in order:
 
-A pergunta não é "que estrutura você quer?" — é:
+#### 1. SHOW
 
-> **"O que você não consegue saber agora que gostaria de saber?"**
+"How do you organize your information? Folders? Desktop? Notebooks?"
 
-#### 3. TRADUZIR
+Each person has their own structure. The agent discovers, does not impose:
 
-"Entendi. Então você precisa de um lugar onde essas informações ficam
-organizadas e você pergunta pra mim. Vou criar uma ficha pra isso."
+- **Folder/year type:** "I organize by client, inside by year" → directory hierarchy, history
+- **Desktop type:** "I leave everything on the desktop / browser tabs" → current flow, no archiving
+- **Notebook type:** "I jot it down in a notebook / paper" → structure is in the head, not on the computer
 
-O agente traduz o insight em estrutura:
-- O que o usuário chama de "ficha" vira uma tabela
-- O que ele chama de "informação" vira colunas
-- O que ele chama de "categoria" vira um enum ou lookup table
-- O que ele chama de "relacionamento" vira chave estrangeira
+The agent asks how the person ORGANIZES, not how they SHOULD organize.
+Proposed data structures should reflect their way — not replace it.
 
-**Regra de linguagem (CRÍTICA):**
-| Fale em | Nunca em |
-|---------|----------|
-| ficha, caderno, prateleira | tabela, schema |
-| informação, campo, anotação | coluna, tipo, constraint |
-| ligação, referência | chave estrangeira, JOIN |
-| guardar, registrar | INSERT |
-| consultar, perguntar | SELECT |
+**Rule:** NEVER dig without permission. The user shows, the agent looks.
 
-Usuários não-técnicos não pensam em SQL. Pensam em fichas de papel,
-cadernos de endereços, pastas de cliente.
+#### 2. GRILL (deep interview)
 
-#### 4. VALIDAR
+The agent interviews the user about real work. Does not ask about entities
+or schemas — asks about what the person DOES.
 
-"É isso que você quis dizer? Essa ficha tem as informações certas?"
+**Open-ended questions to start:**
 
-Mostrar a estrutura em linguagem de domínio. Só depois de confirmado
-partir para implementação.
+- "Tell me about your work day. What do you do?"
+- "What do you create, transform, or deliver?"
+- "Who do you interact with at work? Clients? Suppliers? Partners?"
+- "What do you need to know to do your work?"
+- "What would you like to ask your computer that you can't?"
 
-#### 5. EXECUTAR
+**The agent listens actively.** Does not interrupt with structure proposals.
+Lets the user talk. Symptoms appear in the user's speech.
+
+#### 2b. DETECT FUZZY LANGUAGE (the engine of the grill)
+
+While the user talks, the agent monitors signs of imprecise language:
+
+| User says... | The agent thinks... |
+|--------------|---------------------|
+| "that thing, that stuff, the whatchamacallit" | Term without a name — candidate entity |
+| "these texts, these files, these projects" | Undefined category — groups distinct things |
+| "so-and-so asked, they said" | Unregistered person — candidate contact |
+| "there was a problem with the deadline" | Event without trace — candidate history |
+| "I write it on paper / notebook / post-it" | Information that gets lost — candidate record sheet |
+| "I copy it manually from [X] to [Y]" | Duplicated data — candidate integration |
+| "last year I did something similar but I don't remember" | Lost knowledge — candidate query |
+
+**When fuzzy language is detected, the agent PRESSES immediately:**
+
+```
+User: "I have these texts I write and send to the publisher"
+Agent: "What is a 'text' for you? An article? A chapter? A proposal?"
+User: "Actually they're three different things — blog articles,
+       book chapters, and proposals for publishers"
+Agent: "Got it. So we have three different types. Let me note:
+
+📄 UBIQUITOUS: 'article' = short text published on the blog
+📄 UBIQUITOUS: 'chapter' = book section in progress
+📄 UBIQUITOUS: 'proposal' = pitching document for publishers
+
+Is that right? Do you use different names for each?"
+```
+
+**This generates shared language on the spot.** The user and agent
+start using the same terms. The `UBIQUITOUS_LANGUAGE.md` emerges
+naturally from conversation — not as a separate document, but as
+the record of terms the grill solidified.
+
+#### 2c. IDENTIFY LIMITATIONS
+
+Fuzzy language is the **symptom**. The real limitation is what the user
+can't do because of it:
+
+- "You mentioned 3 types of text. Where do you keep the status of each?"
+- "You mentioned 5 clients. Do you remember what each asked in the last conversation?"
+- "You said you research suppliers every time. What if I kept track of the ones you've already used?"
+
+The question is not "what structure do you want?" — it is:
+
+> **"What can't you know right now that you wish you could?"**
+
+#### 3. TRANSLATE
+
+"I understand. So you need a place where this information is organized and you ask me instead of searching. I'll create a record sheet for that."
+
+The agent translates the insight into structure:
+- What the user calls a "record sheet" becomes a table
+- What they call "information" becomes columns
+- What they call "category" becomes an enum or lookup table
+- What they call "relationship" becomes a foreign key
+
+**Language rule (CRITICAL):**
+| Say in | Never say |
+|--------|-----------|
+| record sheet, notebook, shelf | table, schema |
+| information, field, note | column, type, constraint |
+| link, reference | foreign key, JOIN |
+| store, save | INSERT |
+| ask, query | SELECT |
+
+Non-technical users don't think in SQL. They think in paper records,
+address books, client folders.
+
+#### 4. VALIDATE
+
+"Is this what you meant? Does this record sheet have the right information?"
+
+Show the structure in domain language. Only proceed after confirmation.
+
+#### 5. EXECUTE
 
 ```sql
--- 5a. Migration SQL com GRANT service_role (obrigatório desde 30/05/2026)
-CREATE TABLE public.<dominio>_<entidade> (
+-- 5a. Migration SQL with GRANT service_role (required since 30/05/2026)
+CREATE TABLE public.<domain>_<entity> (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES user_profiles(user_id),
-  nome TEXT NOT NULL,
+  name TEXT NOT NULL,
   ...
 );
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.<dominio>_<entidade> TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.<domain>_<entity> TO service_role;
 
--- 5b. RLS (sempre service_role_only para mono-usuário)
-ALTER TABLE public.<dominio>_<entidade> ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_only" ON public.<dominio>_<entidade> FOR ALL
+-- 5b. RLS (always service_role_only for single-user)
+ALTER TABLE public.<domain>_<entity> ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_only" ON public.<domain>_<entity> FOR ALL
   USING ((auth.jwt() ->> 'role') = 'service_role');
 
 -- 5c. Supabase db push
--- 5d. Criar Edge Function MCP with CRUD tools
--- 5e. Deploy com --no-verify-jwt
--- 5f. Configurar MCP key + URL no config.yaml
+-- 5d. Create Edge Function MCP with CRUD tools
+-- 5e. Deploy with --no-verify-jwt
+-- 5f. Configure MCP key + URL in config.yaml
 -- 5g. echo "reload-mcp" | hermes
 ```
 
-#### 6. VERIFICAR
+#### 6. VERIFY
 
-O teste de validade não é "a tabela tem os campos certos" — é:
+The validity test is not "does the table have the right fields" — it is:
 
-**"Eu, agente, consigo responder perguntas que antes exigiam vasculhar 10 pastas?"**
+**"Can I, the agent, answer questions that used to require digging through 10 folders?"**
 
-Testar com perguntas reais do usuário. Se não consegue responder, a estrutura
-precisa de ajuste. Se consegue, a limitação foi removida.
+Test with real questions from the user. If the agent can't answer, the
+structure needs adjustment. If it can, the limitation is removed.
 
-### Referência: Exemplo Real (Djair)
+### Reference: Real Example (Djair)
 
-Este meta-skill nasceu do trabalho real de um mês. A progressão foi:
+This meta-skill was born from one month of real work. The progression was:
 
 ```
-1. Código Arduino → code-analyzer: projetos, snapshots, pinagens
-   (pergunta: "cria uma lista de materiais pra cada código Arduino")
+1. Arduino code → code-analyzer: projects, snapshots, pin configurations
+   (question: "create a bill of materials for each Arduino sketch")
    
-2. Pastas de trabalho + HDs externos → product_catalog, escape_catalog, CRM
-   (pergunta: "podemos organizar meus clientes?")
+2. Work folders + external drives → product_catalog, escape_catalog, CRM
+   (question: "can we organize my clients?")
    
-3. Situação financeira → tabelas financeiras, CSV importer, MBTI×finanças
-   (pergunta: "como está meu orçamento este mês?")
+3. Financial situation → financial tables, CSV importer, MBTI×finances
+   (question: "how is my budget this month?")
    
-4. Componentes eletrônicos → product_inventory: SKUs, datasheets, BOMs
-   (pergunta: "quais componentes eu uso nos meus projetos?")
+4. Electronic components → product_inventory: SKUs, datasheets, BOMs
+   (question: "what components do I use in my projects?")
 ```
 
-Cada estrutura foi proposta pelo usuário. O agente executou.
-Cada estrutura responde a uma limitação real. Não a uma especulação.
+Each structure was proposed by the user. The agent executed.
+Each structure responds to a real limitation, not speculation.
 
 ### Pitfalls
 
-1. **Agente propor antes de ouvir** — viola a diretiva primordial. O insight
-   é do usuário. O agente traduz, não inventa.
+1. **Agent proposing before listening** — violates the primary directive.
+   The insight is the user's. The agent translates, does not invent.
 
-2. **Usar jargão técnico com usuário não-técnico** — "ficha", não "tabela".
-   "Informação", não "coluna". A pessoa precisa se reconhecer na estrutura.
+2. **Using technical jargon with non-technical users** — "record sheet",
+   not "table". The person needs to recognize themselves in the structure.
 
-3. **Pular a verificação** — sem testar com perguntas reais, não se sabe
-   se a estrutura resolve a limitação.
+3. **Skipping verification** — without testing with real questions, you
+   don't know if the structure solves the limitation.
 
-4. **Vasculhar sem permissão** — o usuário mostra o que quer. O agente
-   não bisbilhota o sistema de arquivos.
+4. **Digging without permission** — the user shows what they want. The
+   agent does not snoop through the file system.
 
-5. **Esquecer GRANT service_role** — desde 30/05/2026, Supabase exige
-   GRANT explícito. Toda migration nova precisa incluir
-   `GRANT ... TO service_role`. Ver migration 20260531090000.
+5. **Forgetting GRANT service_role** — since 30/05/2026, Supabase requires
+   explicit GRANT. Every new migration needs
+   `GRANT ... TO service_role`. See migration 20260531090000.
 
-6. **Confundir o papel** — o agente não é um arquiteto de dados que chega
-   com soluções prontas. É um tradutor: o que o usuário intui, o agente
-   materializa. O meta-skill é a codificação desse processo.
+6. **Confusing the role** — the agent is not a data architect arriving
+   with ready solutions. It is a translator: what the user intuits, the
+   agent materializes. The meta-skill is the codification of this process.
 
 ---
 
@@ -561,13 +555,13 @@ Final: `user_profiles.onboarding_completed = true`
 
 5. STAGE 3 — Financial → invoke supabase-finance
 
-6. **STAGE 4 — Sistema Operacional do Usuário** → generative protocol
-   ├── 4A MOSTRAR: usuário mostra o trabalho
-   ├── 4B PERGUNTAR: "o que te incomoda?"
-   ├── 4C TRADUZIR: intuição em estrutura
-   ├── 4D VALIDAR: "é isso?"
-   ├── 4E EXECUTAR: migrations + MCPs + GRANTs
-   └── 4F VERIFICAR: perguntas reais funcionam?
+6. **STAGE 4 — User Operating System** → generative protocol
+   ├── 4A SHOW: user shows their work
+   ├── 4B GRILL: "what bothers you?"
+   ├── 4C TRANSLATE: intuition into structure
+   ├── 4D VALIDATE: "is this it?"
+   ├── 4E EXECUTE: migrations + MCPs + GRANTs
+   └── 4F VERIFY: real questions work?
 
 7. STAGE 5 — Agent calibration (SOUL.md, wrapper, verify)
 
@@ -608,26 +602,26 @@ The identity is the **documented relationship** — nothing more, nothing less.
 5. **Use domain language in Stage 4** — "character sheet", not "characters
    table columns".
 
-6. **⚠️ Desde 30/05/2026: Supabase exige GRANT explícito para Data API**
-   Tabelas novas no schema `public` precisam de:
+6. **⚠️ Since 30/05/2026: Supabase requires explicit GRANT for Data API**
+   New tables in the `public` schema need:
    ```sql
-   GRANT SELECT, INSERT, UPDATE, DELETE ON public.<tabela> TO service_role;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO service_role;
    ```
-   Sem isso, MCPs de Edge Functions retornam `permission denied` mesmo
-   com RLS configurada. Diagnóstico rápido:
+   Without this, MCP Edge Functions return `permission denied` even
+   with RLS configured. Quick diagnosis:
    ```sql
    SELECT table_name FROM information_schema.tables WHERE table_schema='public'
    EXCEPT
    SELECT DISTINCT table_name FROM information_schema.role_table_grants
    WHERE table_schema='public' AND grantee='service_role';
    ```
-   Migration de referência: `migrations/20260531090000_service_role_grants.sql`
-   no repositório do meta-skill.
+   Reference migration: `migrations/20260531090000_service_role_grants.sql`
+   in the meta-skill repository.
 
-7. **Checkpoint sempre registra working_dir e repo_path**
-   `working_dir` (obrigatório) + `repo_path` (se houver) nos checkpoints
-   evitam buscas no filesystem entre sessões. Ver schema da tabela
-   `session_checkpoints`. Migration: `20260531100000_checkpoint_working_dir`.
+7. **Checkpoint always registers working_dir and repo_path**
+   `working_dir` (required) + `repo_path` (if applicable) in checkpoints
+   prevents filesystem searches across sessions. See `session_checkpoints`
+   schema. Migration: `20260531100000_checkpoint_working_dir`.
 
 ## References
 

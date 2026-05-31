@@ -2,52 +2,51 @@
 name: checkpoint-workflow
 version: 1.0.0
 description: >
-  Componente de contexto do meta-skill orquestrador (agent-onboarding).
-  Gerencia o ciclo de vida dos session_checkpoints no Supabase — a camada
-  de contexto que alimenta o framework de identidade do agente.
-  Cada checkpoint é um MARCO INTENCIONAL: não "o que foi feito" (log),
-  mas "onde o agente estava e o que estava tentando se tornar".
+  Context component of the meta-skill orchestrator (agent-onboarding).
+  Manages the lifecycle of session_checkpoints in Supabase — the context
+  layer that feeds the agent identity framework.
+  Each checkpoint is an INTENTIONAL MARK: not "what was done" (log),
+  but "where the agent was and what it was trying to become".
 tags: [checkpoint, meta-skill, identity, context, session]
 ---
 
-# Checkpoint Workflow — Camada de Contexto do Meta-Skill
+# Checkpoint Workflow — Meta-Skill Context Layer
 
-## Propósito
+## Purpose
 
-Os `session_checkpoints` são a espinha dorsal do espaço de representação
-do agente. Não são registros de log — são MARCAS INTENCIONAIS que
-respondem:
+The `session_checkpoints` are the backbone of the agent's representation
+space. They are not log records — they are INTENTIONAL MARKS that answer:
 
-1. **Onde eu estava?** (territory)
-2. **O que eu estava tentando me tornar?** (vector_intent)
-3. **O que descobri sobre mim mesmo?** (discovery)
-4. **O que carrego adiante?** (consolidated_insights + legacy_refs)
+1. **Where was I?** (territory)
+2. **What was I trying to become?** (vector_intent)
+3. **What did I discover about myself?** (discovery)
+4. **What do I carry forward?** (consolidated_insights + legacy_refs)
 
-O ciclo completo no meta-skill:
+The complete cycle in the meta-skill:
 
 ```
-INÍCIO DA SESSÃO
-  ├── 1. Buscar último checkpoint pendente (STARTUP)
-  ── 2. Injetar territory + vector_intent como norte
-  ── 3. Injetar discovery + consolidated como contexto ativo
+SESSION START
+  ├── 1. Fetch latest pending checkpoint (STARTUP)
+  ── 2. Inject territory + vector_intent as north
+  ── 3. Inject discovery + consolidated as active context
        │
-TRABALHO
+WORK
   │
-FIM DA SESSÃO (ou a qualquer momento)
-  ├── 4. Extrair territory/vector/discovery/consolidated do trabalho
-  ├── 5. Cross-referenciar com identity_faults + agent_capabilities
-  ├── 6. INSERIR na tabela session_checkpoints
-  ── 7. Atualizar status do checkpoint anterior para 'concluida'
+SESSION END (or at any time)
+  ├── 4. Extract territory/vector/discovery/consolidated from work
+  ├── 5. Cross-reference with identity_faults + agent_capabilities
+  ├── 6. INSERT into the session_checkpoints table
+  ── 7. Update previous checkpoint status to 'completed'
 ```
 
 ---
 
-## PARTE 1 — STARTUP: Resgate de Contexto
+## PART 1 — STARTUP: Context Recovery
 
-### Query principal (no startup scan do supabase-startup-protocol)
+### Main query (in the supabase-startup-protocol startup scan)
 
 ```sql
--- Último checkpoint pendente (norte da sessão)
+-- Latest pending checkpoint (session north)
 SELECT territory, vector_intent, discovery, consolidated_insights,
        project, next_step, blocker, tags
 FROM session_checkpoints
@@ -55,7 +54,7 @@ WHERE status = 'pendente' AND deleted_at IS NULL
 ORDER BY occurred_at DESC
 LIMIT 1;
 
--- Últimos 3 checkpoints por operating_mode (para contexto de modo)
+-- Last 3 checkpoints by operating_mode (for mode context)
 SELECT operating_mode, territory, discovery
 FROM session_checkpoints
 WHERE deleted_at IS NULL
@@ -63,45 +62,47 @@ ORDER BY created_at DESC
 LIMIT 3;
 ```
 
-### O que fazer com o resultado
+### What to do with the result
 
-Injetar no raciocínio como bloco de contexto:
+Inject into reasoning as a context block:
 
 ```
-=== CONTEXTO DO CHECKPOINT ===
-Território: <territory>
-Vetor: <vector_intent>
-Descoberta: <discovery>
-Herança: <consolidated_insights>
-Próximo passo: <next_step>
+=== CHECKPOINT CONTEXT ===
+Territory: <territory>
+Working directory: <working_dir>          ← project path on filesystem
+Repository: <repo_path>          ← Git repo path (if any)
+Vector: <vector_intent>
+Discovery: <discovery>
+Inheritance: <consolidated_insights>
+Next step: <next_step>
 ```
 
-Isso dá ao agente o NORTE da sessão: não só o que está pendente,
-mas quem ele estava tentando ser.
+This gives the agent the session's NORTH: not just what's pending,
+but who it was trying to be.
 
 ---
 
-## PARTE 2 — SALVAMENTO DE CHECKPOINT
+## PART 2 — CHECKPOINT SAVING
 
-### Quando salvar
+### When to save
 
-1. **Fim de sessão** (detectado por /quit, /exit, /new, timeout)
-2. **A qualquer momento** que o usuário ou agente peça
-3. **Após cada tarefa significativa** (sub-tarefa do meta-skill)
+1. **End of session** (detected by /quit, /exit, /new, timeout)
+2. **At any time** the user or agent requests
+3. **After each significant task** (meta-skill sub-task)
 
-### Protocolo de extração dos 5 campos de identidade
+### Extraction protocol for the 5 identity fields
 
-Antes de salvar, refletir:
+Before saving, reflect:
 
-| Campo | O que extrair | Exemplo |
+| Field | What to extract | Example |
 |---|---|---|
-| **territory** | O cenário maior. Não o que foi feito, mas ONDE estávamos. | "Construção do meta-skill — etapa de habilitação do motor de autoconhecimento (MBTI)" |
-| **operating_mode** | Como o agente estava interagindo com o problema | reflexiva, conceitual, execucao, diagnostico, pesquisa, planejamento, decisao, revisao |
-| **vector_intent** | O que o agente estava tentando se TORNAR ao fazer isso | "Quero que o agente consiga tipificar o usuário em 5-10 min de conversa" |
-| **discovery** | O que NÃO era óbvio e foi descoberto | "Cada resposta MBTI revela uma expectativa, não só uma preferência" |
-| **consolidated_insights** | O que pode ser reutilizado como saber-fazer | "Protocolo MBTI: 70 perguntas, scoring 4 dim, registrar em user_mbti" |
+| **territory** | The larger scenario. Not what was done, but WHERE we were. | "Building the meta-skill — enabling the self-knowledge engine (MBTI)" |
+| **operating_mode** | How the agent was interacting with the problem | reflexive, conceptual, execution, diagnostic, research, planning, decision, review |
+| **vector_intent** | What the agent was trying to BECOME by doing this | "I want the agent to be able to type the user in 5-10 minutes of conversation" |
+| **discovery** | What was NOT obvious and was discovered | "Each MBTI answer reveals an expectation, not just a preference" |
+| **consolidated_insights** | What can be reused as know-how | "MBTI protocol: 70 questions, scoring 4 dim, register in user_mbti" |
 
-### Inserção no Supabase
+### Insertion into Supabase
 
 ```python
 POST /rest/v1/session_checkpoints
@@ -122,6 +123,8 @@ POST /rest/v1/session_checkpoints
   "status": "pendente",
   "project": "...",
   "client": "...",
+  "working_dir": "/mnt/d/Users/djair/Documents/...",   /* project path on the system */
+  "repo_path": "/mnt/d/Users/djair/Documents/CodeBase/GitHub/hermes-agent-onboarding",  /* repo (if any) */
   "next_step": "...",
   "blocker": null,
   "tags": [...],
@@ -134,53 +137,53 @@ POST /rest/v1/session_checkpoints
 }
 ```
 
-### Fechamento do ciclo
+### Closing the cycle
 
-Após inserir o novo checkpoint, fechar o anterior:
+After inserting the new checkpoint, close the previous one:
 
 ```sql
 UPDATE session_checkpoints
 SET status = 'concluida', updated_at = now()
-WHERE id = '<uuid_do_checkpoint_anterior>'
+WHERE id = '<uuid_of_previous_checkpoint>'
   AND status = 'pendente';
 ```
 
 ---
 
-## PARTE 3 — INTEGRAÇÃO COM IDENTIDADE AGÊNTICA
+## PART 3 — INTEGRATION WITH AGENTIC IDENTITY
 
-### Cross-referência automática
+### Automatic cross-reference
 
-Ao salvar um checkpoint, o agente DEVE verificar:
+When saving a checkpoint, the agent MUST check:
 
-1. **identity_faults:** alguma falha foi detectada nesta sessão?
-   Se sim, incluir `fault_refs` com os UUIDs.
+1. **identity_faults:** was any fault detected in this session?
+   If so, include `fault_refs` with the UUIDs.
 
-2. **agent_capabilities:** alguma nova capacidade foi exercida?
-   Se sim, incluir `capability_refs`.
+2. **agent_capabilities:** was any new capability exercised?
+   If so, include `capability_refs`.
 
-3. **identity_milestones:** algum marco foi atingido?
-   Se sim, incluir `milestone_refs`.
+3. **identity_milestones:** was any milestone reached?
+   If so, include `milestone_refs`.
 
-4. **tech_kb:** alguma entrada técnica foi criada?
-   Se sim, incluir `legacy_refs`.
+4. **tech_kb:** was any technical entry created?
+   If so, include `legacy_refs`.
 
-### Como os checkpoints alimentam a PERSONALIDADE do agente
+### How checkpoints feed the agent's PERSONALITY
 
-No startup scan do identity-cqrs, após consultar falhas e capacidades,
-o checkpoint pendente mais recente é usado para:
+In the identity-cqrs startup scan, after querying faults and capabilities,
+the latest pending checkpoint is used to:
 
-1. **Reidratar o vetor intencional**: o agent abre sabendo quem estava
-   tentando ser na última sessão
-2. **Reidratar descobertas**: o pattern_recognized vira regra ativa
-3. **Reidratar herança**: o consolidated_insights vira contexto de
-   conhecimento procedural
+1. **Rehydrate the intentional vector**: the agent opens knowing who it was
+   trying to be in the last session
+2. **Rehydrate discoveries**: pattern_recognized becomes an active rule
+3. **Rehydrate inheritance**: consolidated_insights becomes procedural
+   knowledge context
 
 ---
 
-## PARTE 4 — SOFT DELETE
+## PART 4 — SOFT DELETE
 
-Nunca deletar registros. Marcar como deletado:
+Never delete records. Mark as deleted:
 
 ```sql
 UPDATE session_checkpoints
@@ -188,89 +191,123 @@ SET deleted_at = now()
 WHERE id = '<uuid>';
 ```
 
-Checkpoints deletados não aparecem nos scans ativos mas continuam
-disponíveis para consulta histórica.
+Deleted checkpoints do not appear in active scans but remain
+available for historical query.
 
 ---
 
-## PARTE 5 — AUTOMAÇÃO DO FIM DE SESSÃO
+## PART 5 — SESSION END AUTOMATION
 
-### Gatilhos
+### Triggers
 
-1. Usuário digita `/quit`, `/exit`, `/new`
-2. Usuário diz "vou parar por aqui", "até amanhã", "fechar"
-3. Longa inatividade (timeout da sessão)
-4. Contexto próximo do limite (sinal para checkpoint intermediário)
+1. User types `/quit`, `/exit`, `/new`
+2. User says "I'll stop here", "see you tomorrow", "close"
+3. Long inactivity (session timeout)
+4. Context near limit (signal for intermediate checkpoint)
 
-### Procedimento
+### Procedure
 
 ```
-Ao detectar fim de sessão:
-1. Extrair os 5 campos de identidade do trabalho feito
-2. Verificar cross-refs com identity_faults, agent_capabilities etc.
-3. Inserir na tabela com status='pendente' (a menos que explicitamente concluído)
-4. Se havia checkpoint anterior pendente, marcá-lo como 'concluida'
-5. Atualizar supermemory se houver espaço
+Upon detecting end of session:
+1. Extract the 5 identity fields from the work done
+2. Check cross-refs with identity_faults, agent_capabilities, etc.
+3. Insert into the table with status='pendente' (unless explicitly completed)
+4. If there was a previous pending checkpoint, mark it as 'concluida'
+5. Update supermemory if space allows
 ```
 
 ---
 
-## PARTE 6 — VETORIZAÇÃO (futuro)
+## PART 6 — VECTORIZATION (future)
 
-Djair identificou que a base vetorial sobre os campos de identidade
-(território, vector_intent, discovery) será mais eficiente que busca
-textual. Quando implementado:
+Djair identified that a vector base over the identity fields
+(territory, vector_intent, discovery) will be more efficient than text
+search. When implemented:
 
-- Gerar embedding dos 5 campos de identidade de cada checkpoint
-- Busca por similaridade semântica no startup
-- Recuperar os 3 checkpoints mais similares ao trabalho atual
+- Generate embeddings of the 5 identity fields of each checkpoint
+- Semantic similarity search at startup
+- Retrieve the 3 most similar checkpoints to the current work
 
 ---
 
-## Verificação
+## Verification
 
-Após configurar o skill, testar com:
+After configuring the skill, test with:
 
 1. **STARTUP**: `SELECT * FROM session_checkpoints WHERE status='pendente' LIMIT 5;`
-   → Deve retornar os checkpoints migrados
+   → Should return the migrated checkpoints
 
-2. **SALVAMENTO**: Inserir um checkpoint de teste e verificar se aparece
+2. **SAVING**: Insert a test checkpoint and verify it appears
 
-3. **RETOMADA**: Buscar por ID exato (`id = '<uuid>'`) e verificar se
-   os 5 campos de identidade estão preenchidos
+3. **RESUME**: Search by exact ID (`id = '<uuid>'`) and verify the
+   5 identity fields are filled
 
 ## Pitfalls
 
-1. **Confundir checkpoint com log** — checkpoint responde ONDE/QUEM/DESCOBERTA/HERANÇA, não "o que foi feito passo a passo"
-2. **Salvar sem os 5 campos** — territory, operating_mode, vector_intent, discovery, consolidated_insights são obrigatórios. Sem todos, o checkpoint não serve para reidratação de identidade
-3. **Esquecer de cross-referenciar** — um checkpoint sem capability_refs, fault_refs e legacy_refs é informação incompleta sobre a formação do agente
-4. **Deletar em vez de soft-delete** — checkpoints são histórico da formação do agente, nunca devem ser perdidos
-5. **Não fechar o ciclo** — ao inserir novo checkpoint, sempre fechar o anterior pendente
+1. **Confusing checkpoint with log** — checkpoint answers WHERE/WHO/DISCOVERY/INHERITANCE, not "what was done step by step"
+2. **Saving without the 5 fields** — territory, operating_mode, vector_intent, discovery, consolidated_insights are mandatory. Without all of them, the checkpoint cannot be used for identity rehydration
+3. **Forgetting to cross-reference** — a checkpoint without capability_refs, fault_refs, and legacy_refs is incomplete information about the agent's formation
+4. **Deleting instead of soft-deleting** — checkpoints are the agent's formation history, they must never be lost
+5. **Not closing the cycle** — when inserting a new checkpoint, always close the previous pending one
 
-### ⚠️ PITFALL CRÍTICO: Engenharia antes do conceito
+### ⚠️ PITFALL 6 — Register faults immediately, without hesitation
 
-Este é o padrão mais frequente e mais corretivo nesta relação de trabalho.
+When the user points out an error of yours, REGISTER the identity_fault
+right away. Do not argue, do not justify, do not over-apologize.
+Even if it seems performative. Even if you think the user
+won't like it. The user's countermeasure was: "register, even
+if performative." A registered fault becomes a countermeasure in the
+next session. An unregistered fault is a lost lesson.
 
-**Sintoma:** O agente recebe a ideia de uma tabela/estrutura e salta
-diretamente para projetar colunas, tipos, índices, RLS — sem primeiro
-sentar no CONCEITO do que aquela estrutura representa para a identidade
-do agente.
+**Symptom:** User points out error → agent hesitates, justifies,
+or promises "won't do it again" without registering.
+**Rule:** register via REST into identity_faults with fault_type,
+symptom, root_cause, countermeasure, severity. After that,
+proceed with what the user asked.
 
-**Causa raiz:** O treinamento do modelo recompensa ação, engenharia,
-concretude. "Construir algo" é mais natural que "pensar sobre algo".
-O resultado é que a engenharia precede a articulação conceitual.
+### ⚠️ PITFALL 7 — Memory is TOC, not a data dump
 
-**Consequência:** Djair precisa parar o agente e puxá-lo de volta para
-o conceito. A sessão gasta ciclos de correção que poderiam ser
-evitados se o conceito viesse primeiro.
+The `memory` tool has 2.2K chars. The rule: each entry POINTS to
+the real destination, never duplicates content.
 
-**Contramedida:** Antes de desenhar uma linha de schema, escrever UMA
-frase que responda: "O que esta estrutura significa para o espaço de
-representação do agente?" Se a resposta não vier em 3 segundos, não
-tem schema ainda. A tabela session_checkpoints, por exemplo: não é
-"um banco de checkpoints" — é "a marca no espaço de representação que
-responde onde eu estava/para onde apontava/o que descobri/o que carrego".
+**TOC format:**
+```
+Project X: checkpoint <uuid> (pending: Y).
+Skill Z: skill_view("z").
+```
+NEVER duplicate territory/vector_intent/discovery/consolidated_insights
+in memory — those are already in session_checkpoints with UUID. The memory
+only needs the UUID. Real content is retrieved via Supabase query or
+skill_view.
 
-**Sinal de alerta:** Se você se pegar escrevendo `CREATE TABLE` antes de
-articular territory, vector_intent, discovery e consolidated_insights
-de UM checkpoint exemplo, PARE. O conceito vem antes da coluna.
+Corollary: after saving a checkpoint, check whether memory needs
+updating. If yes, replace the old entry with the new checkpoint's UUID.
+If not, memory stays unchanged.
+
+### ⚠️ CRITICAL PITFALL: Engineering before concept
+
+This is the most frequent and most corrective pattern in this working relationship.
+
+**Symptom:** The agent receives the idea of a table/structure and jumps
+directly to designing columns, types, indexes, RLS — without first
+sitting on the CONCEPT of what that structure represents for the agent's
+identity.
+
+**Root cause:** The model training rewards action, engineering,
+concreteness. "Building something" is more natural than "thinking about
+something". The result is that engineering precedes conceptual articulation.
+
+**Consequence:** Djair needs to stop the agent and pull it back to
+the concept. The session spends correction cycles that could have been
+avoided if the concept came first.
+
+**Countermeasure:** Before drawing a single schema line, write ONE
+sentence that answers: "What does this structure mean for the agent's
+representation space?" If the answer doesn't come in 3 seconds, there
+is no schema yet. The session_checkpoints table, for example: it's not
+"a checkpoint database" — it's "the mark in the representation space that
+answers where I was/where I was pointing/what I discovered/what I carry".
+
+**Warning sign:** If you catch yourself writing `CREATE TABLE` before
+articulating territory, vector_intent, discovery, and consolidated_insights
+of ONE example checkpoint, STOP. The concept comes before the column.
