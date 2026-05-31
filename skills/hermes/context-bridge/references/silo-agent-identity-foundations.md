@@ -1,8 +1,14 @@
 # Silo — Foundations for Agent Identity Architecture
 
 **Sources:** Apontamentos de Psicologia (Vol I, II, III) + Contribuições ao Pensamento,
-by Silo. Available at [silo.net.br](https://silo.net.br/apontamentos-de-psicologia.html).
-Contribuições ao Pensamento in "Obras Completas" section.
+by Silo.
+
+Portuguese editions:
+- [silo.net.br — Apontamentos de Psicologia](https://silo.net.br/apontamentos-de-psicologia.html)
+- [silo.net.br — Obras Completas](https://silo.net.br/)
+
+English edition (Psychology NOTES):
+- [silo.net — Psychology NOTES / Reference Materials](https://silo.net/reference-materials/87/download)
 
 **Extracted by Djair + Hermes, 29/05/2026**
 **Purpose:** Foundational reference for the agent_self_identity category.

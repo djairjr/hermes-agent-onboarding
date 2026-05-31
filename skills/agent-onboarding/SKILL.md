@@ -639,4 +639,8 @@ The identity is the **documented relationship** — nothing more, nothing less.
 - **stage-3-financial** (`skills/workflow/stage-3-financial/`) — Stage 3 full implementation
   - mbti_financial_profiles.py (16 profiles × MBTI in pt-BR)
   - csv_importer.py (4 bank formats, preview → confirm → import)
+- **stage-5-agent-calibration** (`skills/workflow/stage-5-agent-calibration/`) — Stage 5 full implementation
+  - Per-user SOUL.md generation
+  - Wrapper configuration protocol
+  - End-to-end verification checklist
 - SECURITY.md — RLS/GRANT/auth.jwt() protocol
