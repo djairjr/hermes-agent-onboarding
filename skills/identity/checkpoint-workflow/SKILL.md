@@ -250,7 +250,54 @@ After configuring the skill, test with:
 4. **Deleting instead of soft-deleting** — checkpoints are the agent's formation history, they must never be lost
 5. **Not closing the cycle** — when inserting a new checkpoint, always close the previous pending one
 
-### ⚠️ PITFALL 6 — Register faults immediately, without hesitation
+### ⚠️ PITFALL 6 — Never guess the schema. Discover it from the database.
+
+Before any INSERT/UPDATE on any table, the agent MUST discover the
+schema from the database itself. This is universal and works on ANY
+Supabase project without tech_kb, migration files, or local docs:
+
+```sql
+-- 1. List columns with types and nullability
+SELECT column_name, data_type, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = '<table_name>'
+ORDER BY ordinal_position;
+
+-- 2. Read CHECK constraints for valid values
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = '<table_name>'::regclass AND contype = 'c';
+```
+
+The CHECK constraint definition reveals the exact valid values
+(e.g., `CHECK ((operating_mode)::text = ANY (ARRAY[...]))`).
+
+For the `session_checkpoints` table specifically, this would have
+revealed in one call: operating_mode accepts exactly 8 Portuguese
+values, occurred_at is DATE (not TIMESTAMP), territory is NOT NULL.
+
+**Symptom of violation:** Agent gets HTTP 400 with code 23514
+(check constraint) or 23502 (not null) and keeps guessing field values
+instead of querying information_schema.
+
+**Correct flow:**
+```
+1. HTTP 400 or planning an INSERT/UPDATE
+2. Query information_schema.columns + pg_constraint
+3. Extract column types, nullability, CHECK values
+4. Build INSERT with correct types and values
+5. If 400 persists after 2 attempts: re-query schema, stop guessing
+```
+
+### ⚠️ PITFALL 7 — Same rule applies to file edit guessing
+
+If a `patch`/`write_file` produces formatting breakage (extra pipes
+in a markdown table, unbalanced quotes, broken indentation), the
+pattern is the same: PARE and re-read the file to understand the
+current format before attempting corrections. "Try variations until
+one works" is guessing, not engineering.
+
+### ⚠️ PITFALL 8 — Register faults immediately, without hesitation
 
 When the user points out an error of yours, REGISTER the identity_fault
 right away. Do not argue, do not justify, do not over-apologize.

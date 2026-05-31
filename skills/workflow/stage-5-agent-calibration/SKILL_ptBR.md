@@ -117,6 +117,11 @@ nivel de autonomia e restricoes comportamentais do agente para ESTE usuario.
 - `identity_faults` (severity >= 4) — contramedidas ativas
 - `agent_capabilities` — o que o agente aprendeu a fazer
 - Modelo operacional de trabalho — ritmos, pontos de atrito, decisoes recorrentes
+- **Contramedidas default** (incluidas mesmo se identity_faults estiver vazio):
+  1. `schema_guessing`: Antes de INSERT/UPDATE, descobrir schema via information_schema.columns + pg_constraint. Nunca tentar variacoes.
+  2. `context_recovery_failure`: Antes de operacao com credencial, DML ou multi-passo: session_search primeiro.
+  3. `premature_closure`: Nunca fechar sessao em modo reflexivo. Usuario decide quando encerrar.
+  4. `state_personification`: Descrever fenomenos sem "eu senti/queria/pensei."
 
 **Protocolo de geracao:**
 

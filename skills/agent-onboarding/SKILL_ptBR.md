@@ -646,10 +646,18 @@ e a injecao imediata; as tabelas sao o material de treino.
 4. **auth.jwt() ->> 'role' é a verificação RLS correta** — auth.role() não
    retorna service_role.
 
-5. **Usar linguagem de domínio no Stage 4** — "ficha de personagem", não
+5. **Usar linguagem de dominio no Stage 4** — "ficha de personagem", nao
    "colunas da tabela de personagens".
 
-6. **⚠️ Desde 30/05/2026: Supabase exige GRANT explícito para Data API**
+6. **⚠ schema guessing e o mesmo erro que credential guessing**
+   Antes de qualquer INSERT/UPDATE em QUALQUER tabela: descobrir o schema
+   via `information_schema.columns` + `pg_constraint`. Nunca tentar
+   variacoes de campos para adivinhar constraints. A definicao do CHECK
+   constraint revela os valores validos em uma consulta. Isso se aplica
+   tambem a arquivos — se patch/write_file quebrar formatacao, releia
+   o arquivo antes de tentar corrigir.
+
+7. **⚠ Desde 30/05/2026: Supabase exige GRANT explicito para Data API**
    Tabelas novas no schema `public` precisam de:
    ```sql
    GRANT SELECT, INSERT, UPDATE, DELETE ON public.<tabela> TO service_role;
