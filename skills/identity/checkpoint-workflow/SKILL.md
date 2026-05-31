@@ -123,8 +123,8 @@ POST /rest/v1/session_checkpoints
   "status": "pendente",
   "project": "...",
   "client": "...",
-  "working_dir": "/mnt/d/Users/djair/Documents/...",   /* project path on the system */
-  "repo_path": "/mnt/d/Users/djair/Documents/CodeBase/GitHub/hermes-agent-onboarding",  /* repo (if any) */
+  "working_dir": "/path/to/project",   /* project path on the system */
+  "repo_path": "https://github.com/user/repo",  /* repo (if any) */
   "next_step": "...",
   "blocker": null,
   "tags": [...],
