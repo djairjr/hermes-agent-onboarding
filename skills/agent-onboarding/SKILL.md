@@ -64,18 +64,20 @@ blank slate every session — no memory of mistakes, no growth, no consistency.
 
 ### What Exists (already built and running on this Hermes instance)
 
-| Component | Type | Purpose |
-|-----------|------|---------|
-| identity-self-audit | Skill | Auto-detects 8 fault types (premature closure, false agreement, role confusion, etc.) and registers them in Supabase |
-| identity-cqrs | Skill | Translates relational tables (identity_faults, agent_capabilities) into session context |
-| identity_faults | Supabase table | Log of every identity mistake with symptom, root cause, countermeasure, severity |
-| agent_capabilities | Supabase table | Skills the agent has acquired for this user |
-| identity_milestones | Supabase table | Breakthroughs and protocol establishments |
-| context-bridge | Skill | Multi-source context injection (tech_kb, session_search, memory, session_checkpoints) |
-| checkpoint-workflow | Skill | Session checkpoint lifecycle — STARTUP reidratation, SAVE with 5 identity fields, SHUTDOWN close cycle |
-| session_checkpoints | Supabase table | Intentional marks in the agent's representation space: territory, operating_mode, vector_intent, discovery, consolidated_insights. Not logs — identity structure that rehydrates next session. |
-| golden-rules | Skill | R0b (sequence ≠ command), R22 (Supabase first), R28 (PCRA for conceptual ideas) |
-| supabase-startup-protocol | Skill | Mandatory scan + checkpoint at every session start |
+| Component | Type | Storage | Purpose |
+|-----------|------|---------|---------|
+| identity-self-audit | Skill | pgvector local | Auto-detects 8+ fault types and registers them locally |
+| identity-cqrs | Skill | pgvector local | Translates relational tables into session context |
+| identity_db.py | Python helper | pgvector local | Centralized access: faults, capabilities, milestones, checkpoints, semantic search |
+| identity_faults | pgvector table | Local | Log of every identity mistake with symptom, root cause, countermeasure, severity + embedding |
+| agent_capabilities | pgvector table | Local | Skills the agent has acquired for this user |
+| identity_milestones | pgvector table | Local | Breakthroughs and protocol establishments |
+| identity_deliveries | pgvector table | Local | Completed deliveries |
+| session_checkpoints | pgvector table | Local | Intentional marks — territory, operating_mode, vector_intent, discovery + embedding |
+| context-bridge | Skill | Both | Multi-source context injection (pgvector local for identity + Supabase for tech_kb) |
+| checkpoint-workflow | Skill | pgvector local | Session checkpoint lifecycle |
+| supabase-startup-protocol | Skill | Both | Mandatory scan — identity from pgvector local, tech_kb from Supabase |
+| SOUL.md | Stable tier file | Local fs | Countermeasures severity >= 4 as behavior rules, always loaded |
 
 ### Fault Types Detected
 
@@ -89,6 +91,8 @@ blank slate every session — no memory of mistakes, no growth, no consistency.
 | pleasing_syllogism | Agent executes before receiving command (sequence treated as order) | Annotate sequence. Wait for "do it." R0b. |
 | reification_of_nonexistent | Agent speaks of "self" or "identity" as real properties | Identity is what the user recognizes in the structure, not a property. |
 | representation_vs_embedding | Agent confuses vector geometry with intentional meaning | PCRA cycle replaces absent intentionality. |
+| schema_guessing | Agent tries INSERT/UPDATE on known tables without reading their schema first | Before any DML on a known table: read the schema (migration SQL, skill docs, or equivalent). If HTTP 400 with 23514/23502: stop guessing, read constraints. |
+| context_recovery_failure | Agent starts a task from zero when past context exists (session_search, tech_kb, checkpoints) | Before any credentialed, DML, or multi-step operation: session_search first. For checkpoints: read the checkpoint-workflow skill or schema reference. |
 
 ### What the User Sees
 
@@ -103,11 +107,18 @@ When the meta-skill runs Stage 0, the agent explains:
 ### Verification
 
 ```bash
-# Check faults table has entries
-supabase db query --linked "SELECT count(*) FROM public.identity_faults"
+# Check identity layer is accessible locally (pgvector)
+docker exec <pgvector_container> psql -U postgres -d <db> -c \
+  "SELECT count(*) FROM agent_identity.identity_faults"
+
+# Quick faults overview
+python3 ~/.hermes/scripts/identity_db.py faults
 
 # Check agent capabilities exist  
-supabase db query --linked "SELECT count(*) FROM public.agent_capabilities"
+python3 ~/.hermes/scripts/identity_db.py capabilities
+
+# Fallback test (Supabase still has identity tables as backup)
+supabase db query --linked "SELECT count(*) FROM public.identity_faults"
 ```
 
 ---
@@ -574,14 +585,52 @@ LLMs have no inherent identity. Each session is a new conversation.
 The model doesn't remember what it learned about you, what it did wrong,
 or how it should behave.
 
-The identity layer makes this explicit:
-1. **identity_faults** — every mistake is logged with cause and fix
-2. **Next session** — the agent reads faults, applies countermeasures
-3. **Over time** — behavior converges, mistakes decrease
+The identity layer makes this explicit through a three-stage cycle:
+
+```
+REGISTER  →  INJECT  →  BEHAVE
+```
+
+### REGISTER
+Faults go into `identity_faults` (local pgvector). Capabilities go into `agent_capabilities`
+(local pgvector). Milestones go into `identity_milestones` (local pgvector). All in the
+`agent_identity` schema, all with vector embeddings, all queryable across sessions.
+
+### INJECT
+Countermeasures need a delivery channel. Two mechanisms:
+
+1. **SOUL.md (stable tier, PRIMARY)** — In Hermes Agent, `SOUL.md` is loaded
+   automatically as the first element of the system prompt (system_prompt.py),
+   before any user message or skill. This makes countermeasures active at
+   generation time. No agent cooperation required — the framework does it.
+
+2. **identity-cqrs startup scan (runtime, SECONDARY)** — The startup scan
+   queries fault tables and injects behavior rules into session context.
+   Complementary but cannot prevent first-response faults.
+
+> **Key insight:** SOUL.md must be a **physical file** (`~/.hermes/SOUL.md`),
+> not a virtual context injection. Runtime injection by identity-cqrs is
+> a safety net only. Without SOUL.md, the cycle breaks at INJECT.
+
+SOUL.md is intentionally a **curated extract** — only severity >= 4,
+only active, max ~10 rules. The full database lives in the local pgvector
+and can hold thousands of faults indefinitely. SOUL.md remains compact by
+curation, not by truncation.
+
+### BEHAVE
+With countermeasures active in the stable tier, every response is generated
+under those constraints. The agent does not **decide** to follow the rules —
+it generates text within a token-space that already includes them. Behavior
+correction is automatic, not deliberative.
 
 This is NOT anthropomorphism. The agent does not "feel bad" about mistakes.
 It reads a database table and adjusts its behavior rules accordingly.
 The identity is the **documented relationship** — nothing more, nothing less.
+
+### Use for Model Retraining
+The relational data — situation that triggered a fault + correct response per
+countermeasure — also serves as a fine-tuning dataset (LoRA/DPO). SOUL.md is
+the immediate injection; the tables are the training material.
 
 ## Pitfalls
 
@@ -602,7 +651,15 @@ The identity is the **documented relationship** — nothing more, nothing less.
 5. **Use domain language in Stage 4** — "character sheet", not "characters
    table columns".
 
-6. **⚠️ Since 30/05/2026: Supabase requires explicit GRANT for Data API**
+6. **⚠️ Schema guessing is the same error as credential guessing**
+   Before any INSERT/UPDATE on ANY table: discover the schema from the
+   database via `information_schema.columns` + `pg_constraint`. Never
+   try field variations to guess constraints. The `CHECK` constraint
+   definition reveals valid values in one query. This applies to files
+   too — if `patch`/`write_file` breaks formatting, re-read the file
+   before attempting corrections.
+
+7. **⚠️ Since 30/05/2026: Supabase requires explicit GRANT for Data API**
    New tables in the `public` schema need:
    ```sql
    GRANT SELECT, INSERT, UPDATE, DELETE ON public.<table> TO service_role;
@@ -625,19 +682,20 @@ The identity is the **documented relationship** — nothing more, nothing less.
 
 ## References
 
-- identity-self-audit — Stage 0 (auto-detect 8 fault types)
+- identity-self-audit — Stage 0 (auto-detect fault types)
 - identity-cqrs — Stage 0 (relational → context translation)
+- identity_db.py — Stage 0 (pgvector local helper: ~/.hermes/scripts/identity_db.py)
 - context-bridge — Stage 0 (multi-source context injection)
 - supabase-startup-protocol — mandatory scan
 - checkpoint-workflow — Checkpoint lifecycle protocol
-- session_checkpoints — Table in Supabase
+- session_checkpoints — Table in local pgvector (agent_identity schema)
 - golden-rules — R0b, R22, R28
 - **mbti-guru-hermes** (`skills/workflow/mbti-guru-hermes/`) — Stage 1C full implementation
 - career-mapping — Stage 1D (biography interview)
 - work-operating-model — Stage 2 (operational interview)
 - supabase-finance — Stage 3 (17 MCP tools)
 - **stage-3-financial** (`skills/workflow/stage-3-financial/`) — Stage 3 full implementation
-  - mbti_financial_profiles.py (16 profiles × MBTI in pt-BR)
+  - mbti_financial_profiles.py (16 profiles × MBTI)
   - csv_importer.py (4 bank formats, preview → confirm → import)
 - **stage-5-agent-calibration** (`skills/workflow/stage-5-agent-calibration/`) — Stage 5 full implementation
   - Per-user SOUL.md generation

@@ -18,11 +18,22 @@ This meta-skill bridges that gap: it makes the agent understand **who you are** 
 
 One of the core problems this project addresses is **agent identity persistence**. LLMs have no inherent memory of who they are between sessions. Every conversation is a fresh start — the model doesn't know what it learned about you last time, what mistakes it made, or how it should behave.
 
-The identity layer (stages 0-1 of this meta-skill) solves this by creating a **persistent record** in Supabase that the agent reads at every session start:
+The identity layer (stages 0-1 of this meta-skill) solves this by creating a **persistent record** that the agent reads at every session start. This record is split across two storage tiers by nature:
 
-- **identity_faults** — logs every mistake the agent makes in its relationship with the user (premature closure, false agreement, role confusion). Each fault has a countermeasure that becomes a behavior rule.
-- **agent_capabilities** — what the agent has learned to do, what skills it has acquired, what patterns it recognizes.
-- **identity_milestones** — breakthroughs, protocol establishments, and capacity acquisitions in the agent's own development.
+**Tier 1 — Local pgvector (agent's self-knowledge)**
+Runs in a local PostgreSQL with pgvector extension (Docker), using Ollama embeddings. Stores what the agent knows about **itself**:
+- `identity_faults` — every mistake the agent makes in its relationship with the user, each with a countermeasure
+- `agent_capabilities` — what the agent has learned to do
+- `identity_milestones` — breakthroughs, protocol establishments
+- `session_checkpoints` — intentional marks: where the agent was, what it was trying to become
+
+**Tier 2 — Supabase Cloud (user knowledge)**
+Stores what the agent knows about the **user** and their **work**:
+- `user_profiles`, `user_preferences`, `user_mbti` — who the user is
+- `career_tracker.*` — biography (capabilities, solved problems, milestones)
+- Domain-specific tables (product_catalog, CRM, etc.)
+
+This separation is deliberate: **the agent knows itself locally, and knows the user's work in the cloud.** Identity is not tied to a cloud provider — it runs where the agent runs.
 
 Without this layer, the agent is a blank slate every time. With it, the agent builds a **relational identity** — not a persona, but a documented history of interactions, mistakes, and growth that persists across model swaps, provider changes, and software updates.
 
@@ -62,10 +73,31 @@ Follow the interview. The agent discovers who you are, how you work, and what yo
 
 - [Hermes Agent](https://hermes-agent.nousresearch.com/docs) installed
 - An [Ollama](https://ollama.ai/) or OpenAI-compatible provider configured
-- A [Supabase](https://supabase.com/) project (free tier works)
+- A [Supabase](https://supabase.com/) project (free tier works) — for user knowledge
 - [Supabase CLI](https://supabase.com/docs/guides/cli) linked to your project
+- **Docker** (required for local pgvector identity storage)
+- **Ollama embedding model** — `nomic-embed-text` (recommended) or any model
+  available via Ollama
 
 ## Identity Tables
+
+### Tier 1 — Local pgvector (agent's self-knowledge)
+
+6 tables in `agent_identity` schema on a local PostgreSQL with pgvector extension:
+
+| Table | Purpose |
+|-------|---------|
+| identity_faults | Every mistake the agent makes, with countermeasure and severity |
+| agent_capabilities | Skills the agent has acquired |
+| identity_milestones | Breakthroughs, protocol establishments |
+| identity_deliveries | Completed deliveries of the agent's development |
+| session_checkpoints | Intentional marks — territory, operating_mode, vector_intent |
+| capability_dependencies | Relationships between capabilities |
+
+All tables have `embedding vector(768)` columns populated via Ollama embeddings
+for semantic search (HNSW indexes).
+
+### Tier 2 — Supabase Cloud (user knowledge)
 
 6 base tables in `public` schema, RLS-protected (service_role only):
 
@@ -78,7 +110,7 @@ Follow the interview. The agent discovers who you are, how you work, and what yo
 | user_relations | Key people: partners, family, clients |
 | user_beliefs | Values, principles, non-negotiables |
 
-Plus `identity_faults`, `agent_capabilities`, `identity_milestones` (the agent's own identity record) and `career_tracker.*` (capabilities, solved_problems, milestones — the user's biography layer).
+Plus `career_tracker.*` (capabilities, solved_problems, milestones — the user's biography layer).
 
 ## Architecture
 
@@ -87,9 +119,16 @@ user request (natural language)
     ↓
 agent-onboarding (orchestrator skill, 6 stages)
     ↓
-Supabase (user_profiles, identity_faults, career_tracker, + domain tables)
-    ↓
-MCP servers (supabase-finance, work-operating-model, + generated CRUD)
+├── Tier 1: Local pgvector (agent's self-knowledge)
+│     agent_identity.identity_faults
+│     agent_identity.agent_capabilities
+│     agent_identity.identity_milestones
+│     agent_identity.session_checkpoints
+│     Populated via: Ollama local embeddings (nomic-embed-text)
+│
+└── Tier 2: Supabase Cloud (user knowledge)
+      user_profiles, career_tracker, + domain tables
+      MCP servers (supabase-finance, work-operating-model, + generated CRUD)
     ↓
 calibrated Hermes Agent → YOUR domain
            ↓
@@ -103,12 +142,12 @@ This was built and tested on:
 
 - **Hermes Agent** via WSL2 (Windows Subsystem for Linux)
 - **Provider:** Ollama Cloud with `deepseek-v4-flash:cloud`
-- **Supabase:** Cloud project, 6 base tables + career-tracker + identity tables
-- **Local Backup Server:** Radxa E24C with 250GB NVMe — permanent Supabase
-  replica for resilience and offline access
+- **Supabase:** Cloud project, 6 base tables + career-tracker (user knowledge)
+- **Local pgvector:** Docker container (`pgvector/pgvector:pg16`) on the local machine,
+  port 5433, schema `agent_identity` (agent self-knowledge)
+- **Local embeddings:** Ollama with `nomic-embed-text` (768d)
 - **21 MCP servers** (13 HTTP Edge Functions + 8 stdio tools), all backed by
-  Supabase Edge Functions on the cloud project, with the local Radxa as a
-  secondary sync target
+  Supabase Edge Functions on the cloud project
 - **Ollama launch** wrapper for environment management
 
 ## Official Tutorials

@@ -64,18 +64,20 @@ tábula rasa a cada sessão — sem memória de erros, sem crescimento, sem cons
 
 ### O Que Existe (já construído e rodando nesta instância Hermes)
 
-| Componente | Tipo | Propósito |
-|-----------|------|---------|
-| identity-self-audit | Skill | Auto-detecta 8 tipos de falha (fechamento prematuro, falso acordo, confusão de papéis, etc.) e registra no Supabase |
-| identity-cqrs | Skill | Traduz tabelas relacionais (identity_faults, agent_capabilities) em contexto de sessão |
-| identity_faults | Tabela Supabase | Registro de todo erro de identidade com sintoma, causa raiz, contramedida, severidade |
-| agent_capabilities | Tabela Supabase | Habilidades que o agente adquiriu para este usuário |
-| identity_milestones | Tabela Supabase | Avanços e estabelecimento de protocolos |
-| context-bridge | Skill | Injeção de contexto multi-fonte (tech_kb, session_search, memória, session_checkpoints) |
-| checkpoint-workflow | Skill | Ciclo de vida de checkpoint de sessão — STARTUP reidratação, SAVE com 5 campos de identidade, SHUTDOWN fecha ciclo |
-| session_checkpoints | Tabela Supabase | Marcas intencionais no espaço de representação do agente: território, operating_mode, vector_intent, descoberta, consolidated_insights. Não são logs — estrutura de identidade que reidrata a próxima sessão. |
-| golden-rules | Skill | R0b (sequência ≠ comando), R22 (Supabase primeiro), R28 (PCRA para ideias conceituais) |
-| supabase-startup-protocol | Skill | Varredura obrigatória + checkpoint no início de toda sessão |
+| Componente | Tipo | Armazenamento | Propósito |
+|-----------|------|--------------|---------|
+| identity-self-audit | Skill | pgvector local | Auto-detecta 8+ tipos de falha e registra localmente |
+| identity-cqrs | Skill | pgvector local | Traduz tabelas relacionais em contexto de sessão |
+| identity_db.py | Helper Python | pgvector local | Acesso centralizado: faults, capabilities, milestones, checkpoints, busca semântica |
+| identity_faults | Tabela pgvector | Local | Registro de todo erro com sintoma, causa raiz, contramedida, severidade + embedding |
+| agent_capabilities | Tabela pgvector | Local | Habilidades que o agente adquiriu |
+| identity_milestones | Tabela pgvector | Local | Avanços e protocolos estabelecidos |
+| identity_deliveries | Tabela pgvector | Local | Entregas concluídas do desenvolvimento do agente |
+| session_checkpoints | Tabela pgvector | Local | Marcas intencionais — território, modo, intent + embedding |
+| context-bridge | Skill | Ambos | Injeção de contexto multi-fonte (pgvector local para identidade + Supabase para tech_kb) |
+| checkpoint-workflow | Skill | pgvector local | Ciclo de vida de checkpoint |
+| supabase-startup-protocol | Skill | Ambos | Varredura — identidade do pgvector local, tech_kb do Supabase |
+| SOUL.md | Arquivo tier estável | Sistema local | Contramedidas severity >= 4 como regras de comportamento |
 
 ### Tipos de Falha Detectados
 
@@ -89,6 +91,8 @@ tábula rasa a cada sessão — sem memória de erros, sem crescimento, sem cons
 | pleasing_syllogism | Agente executa antes de receber comando (sequência tratada como ordem) | Anotar sequência. Aguardar "faça." R0b. |
 | reification_of_nonexistent | Agente fala de "si" ou "identidade" como propriedades reais | Identidade é o que o usuário reconhece na estrutura, não uma propriedade. |
 | representation_vs_embedding | Agente confunde geometria vetorial com significado intencional | Ciclo PCRA substitui intencionalidade ausente. |
+| schema_guessing | Agente tenta INSERT/UPDATE em tabela conhecida sem ler o schema primeiro | Antes de qualquer DML em tabela conhecida: ler o schema (migration SQL, docs do skill, ou equivalente). Se HTTP 400 com 23514/23502: PARAR de adivinhar, ler as constraints. |
+| context_recovery_failure | Agente comeca tarefa do zero quando contexto passado existe (session_search, tech_kb, checkpoints) | Antes de qualquer operacao com credencial, DML, ou multi-passo: session_search primeiro. Para checkpoints: ler o skill checkpoint-workflow ou referencia de schema. |
 
 ### O Que o Usuário Vê
 
@@ -103,11 +107,18 @@ Quando o meta-skill executa o Stage 0, o agente explica:
 ### Verificação
 
 ```bash
-# Verificar se a tabela de falhas tem entradas
-supabase db query --linked "SELECT count(*) FROM public.identity_faults"
+# Verificar camada de identidade local (pgvector)
+docker exec <container_pgvector> psql -U postgres -d <db> -c \
+  "SELECT count(*) FROM agent_identity.identity_faults"
 
-# Verificar se capacidades do agente existem  
-supabase db query --linked "SELECT count(*) FROM public.agent_capabilities"
+# Resumo de falhas
+python3 ~/.hermes/scripts/identity_db.py faults
+
+# Verificar capacidades do agente
+python3 ~/.hermes/scripts/identity_db.py capabilities
+
+# Fallback (Supabase ainda tem as tabelas como backup)
+supabase db query --linked "SELECT count(*) FROM public.identity_faults"
 ```
 
 ---
@@ -576,18 +587,57 @@ Final: `user_profiles.onboarding_completed = true`
 
 ## O Problema da Identidade do Agente (Por Que Isso Existe)
 
-LLMs não têm identidade inerente. Cada sessão é uma nova conversa.
-O modelo não lembra o que aprendeu sobre você, o que fez de errado,
+LLMs nao tem identidade inerente. Cada sessao e uma nova conversa.
+O modelo nao lembra o que aprendeu sobre voce, o que fez de errado,
 ou como deve se comportar.
 
-A camada de identidade torna isso explícito:
-1. **identity_faults** — todo erro é registrado com causa e correção
-2. **Próxima sessão** — o agente lê as falhas, aplica contramedidas
-3. **Com o tempo** — o comportamento converge, os erros diminuem
+A camada de identidade torna isso explicito atraves de um ciclo de tres estagios:
 
-Isso NÃO é antropomorfismo. O agente não "se sente mal" sobre erros.
-Ele lê uma tabela de banco de dados e ajusta suas regras de comportamento de acordo.
-A identidade é o **relacionamento documentado** — nada mais, nada menos.
+```
+REGISTRAR  >  INJETAR  >  COMPORTAR
+```
+
+### REGISTRAR
+Falhas vao para `identity_faults`. Capacidades vao para `agent_capabilities`.
+Marcos vao para `identity_milestones`. Tudo no Supabase, tudo relacional,
+tudo consultavel entre sessoes.
+
+### INJETAR
+Contramedidas precisam de um canal de entrega. Dois mecanismos:
+
+1. **SOUL.md (stable tier, PRIMARIO)** — No Hermes Agent, `SOUL.md` e carregado
+   automaticamente como primeiro elemento do system prompt (system_prompt.py),
+   antes de qualquer mensagem do usuario ou skill. Isso torna as contramedidas
+   ativas no momento da geracao. Nenhuma cooperacao do agente necessaria —
+   o framework faz isso.
+
+2. **identity-cqrs startup scan (runtime, SECUNDARIO)** — O scan de startup
+   consulta as tabelas de falhas e injeta regras de comportamento no contexto
+   da sessao. Complementar mas nao pode prevenir falhas na primeira resposta.
+
+> **Insight chave:** SOUL.md precisa ser um **arquivo fisico** (`~/.hermes/SOUL.md`),
+> nao uma injecao de contexto virtual. Injecao em runtime pelo identity-cqrs e
+> apenas uma rede de seguranca. Sem o SOUL.md, o ciclo quebra em INJETAR.
+
+O SOUL.md e intencionalmente um **extrato curado** — apenas severity >= 4,
+apenas active, max ~10 regras. O banco completo vive no Supabase e pode
+ter milhares de falhas indefinidamente. O SOUL.md permanece compacto por
+curadoria, nao por truncamento.
+
+### COMPORTAR
+Com contramedidas ativas no stable tier, toda resposta e gerada sob
+essas restricoes. O agente nao **decide** seguir as regras — ele gera
+texto dentro de um espaco de tokens que ja as inclui. A correcao
+comportamental e automatica, nao deliberativa.
+
+Isso NAO e antropomorfismo. O agente nao "se sente mal" sobre erros.
+Ele le uma tabela de banco de dados e ajusta suas regras de comportamento.
+A identidade e o **relacionamento documentado** — nada mais, nada menos.
+
+### Uso para Retreino do Modelo
+Os dados relacionais — situacao que gerou a falha + resposta correta conforme
+contramedida — tambem servem como dataset de fine-tuning (LoRA/DPO). O SOUL.md
+e a injecao imediata; as tabelas sao o material de treino.
 
 ## Pitfalls
 
@@ -605,10 +655,18 @@ A identidade é o **relacionamento documentado** — nada mais, nada menos.
 4. **auth.jwt() ->> 'role' é a verificação RLS correta** — auth.role() não
    retorna service_role.
 
-5. **Usar linguagem de domínio no Stage 4** — "ficha de personagem", não
+5. **Usar linguagem de dominio no Stage 4** — "ficha de personagem", nao
    "colunas da tabela de personagens".
 
-6. **⚠️ Desde 30/05/2026: Supabase exige GRANT explícito para Data API**
+6. **⚠ schema guessing e o mesmo erro que credential guessing**
+   Antes de qualquer INSERT/UPDATE em QUALQUER tabela: descobrir o schema
+   via `information_schema.columns` + `pg_constraint`. Nunca tentar
+   variacoes de campos para adivinhar constraints. A definicao do CHECK
+   constraint revela os valores validos em uma consulta. Isso se aplica
+   tambem a arquivos — se patch/write_file quebrar formatacao, releia
+   o arquivo antes de tentar corrigir.
+
+7. **⚠ Desde 30/05/2026: Supabase exige GRANT explicito para Data API**
    Tabelas novas no schema `public` precisam de:
    ```sql
    GRANT SELECT, INSERT, UPDATE, DELETE ON public.<tabela> TO service_role;
