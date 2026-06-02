@@ -64,18 +64,20 @@ tábula rasa a cada sessão — sem memória de erros, sem crescimento, sem cons
 
 ### O Que Existe (já construído e rodando nesta instância Hermes)
 
-| Componente | Tipo | Propósito |
-|-----------|------|---------|
-| identity-self-audit | Skill | Auto-detecta 8 tipos de falha (fechamento prematuro, falso acordo, confusão de papéis, etc.) e registra no Supabase |
-| identity-cqrs | Skill | Traduz tabelas relacionais (identity_faults, agent_capabilities) em contexto de sessão |
-| identity_faults | Tabela Supabase | Registro de todo erro de identidade com sintoma, causa raiz, contramedida, severidade |
-| agent_capabilities | Tabela Supabase | Habilidades que o agente adquiriu para este usuário |
-| identity_milestones | Tabela Supabase | Avanços e estabelecimento de protocolos |
-| context-bridge | Skill | Injeção de contexto multi-fonte (tech_kb, session_search, memória, session_checkpoints) |
-| checkpoint-workflow | Skill | Ciclo de vida de checkpoint de sessão — STARTUP reidratação, SAVE com 5 campos de identidade, SHUTDOWN fecha ciclo |
-| session_checkpoints | Tabela Supabase | Marcas intencionais no espaço de representação do agente: território, operating_mode, vector_intent, descoberta, consolidated_insights. Não são logs — estrutura de identidade que reidrata a próxima sessão. |
-| golden-rules | Skill | R0b (sequência ≠ comando), R22 (Supabase primeiro), R28 (PCRA para ideias conceituais) |
-| supabase-startup-protocol | Skill | Varredura obrigatória + checkpoint no início de toda sessão |
+| Componente | Tipo | Armazenamento | Propósito |
+|-----------|------|--------------|---------|
+| identity-self-audit | Skill | pgvector local | Auto-detecta 8+ tipos de falha e registra localmente |
+| identity-cqrs | Skill | pgvector local | Traduz tabelas relacionais em contexto de sessão |
+| identity_db.py | Helper Python | pgvector local | Acesso centralizado: faults, capabilities, milestones, checkpoints, busca semântica |
+| identity_faults | Tabela pgvector | Local | Registro de todo erro com sintoma, causa raiz, contramedida, severidade + embedding |
+| agent_capabilities | Tabela pgvector | Local | Habilidades que o agente adquiriu |
+| identity_milestones | Tabela pgvector | Local | Avanços e protocolos estabelecidos |
+| identity_deliveries | Tabela pgvector | Local | Entregas concluídas do desenvolvimento do agente |
+| session_checkpoints | Tabela pgvector | Local | Marcas intencionais — território, modo, intent + embedding |
+| context-bridge | Skill | Ambos | Injeção de contexto multi-fonte (pgvector local para identidade + Supabase para tech_kb) |
+| checkpoint-workflow | Skill | pgvector local | Ciclo de vida de checkpoint |
+| supabase-startup-protocol | Skill | Ambos | Varredura — identidade do pgvector local, tech_kb do Supabase |
+| SOUL.md | Arquivo tier estável | Sistema local | Contramedidas severity >= 4 como regras de comportamento |
 
 ### Tipos de Falha Detectados
 
@@ -105,11 +107,18 @@ Quando o meta-skill executa o Stage 0, o agente explica:
 ### Verificação
 
 ```bash
-# Verificar se a tabela de falhas tem entradas
-supabase db query --linked "SELECT count(*) FROM public.identity_faults"
+# Verificar camada de identidade local (pgvector)
+docker exec <container_pgvector> psql -U postgres -d <db> -c \
+  "SELECT count(*) FROM agent_identity.identity_faults"
 
-# Verificar se capacidades do agente existem  
-supabase db query --linked "SELECT count(*) FROM public.agent_capabilities"
+# Resumo de falhas
+python3 ~/.hermes/scripts/identity_db.py faults
+
+# Verificar capacidades do agente
+python3 ~/.hermes/scripts/identity_db.py capabilities
+
+# Fallback (Supabase ainda tem as tabelas como backup)
+supabase db query --linked "SELECT count(*) FROM public.identity_faults"
 ```
 
 ---
