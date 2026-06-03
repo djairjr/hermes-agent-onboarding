@@ -1,4 +1,4 @@
-# Case Study: 10-Hour Single Session on an Embedded Buildroot System
+# Case Study: 10-Hour Single Session developing application for Embedded Buildroot System
 
 **Date:** 2026-06-03
 **Project:** ReCamera SG2002 — replacing Node-RED with a Python bridge on a RISC-V camera with TPU
