@@ -24,12 +24,17 @@ MCP servers, and memory systems. But none of them solve the core issue:
 **the agent has no identity between sessions.**
 
 The answer is a **persistent human-machine interface** — not a persona or a
-chatbot personality, but a documented, queryable history of:
+chatbot personality, but a documented, queryable history of **7 dimensions**:
 
-- **identity_faults** — every mistake the agent makes in its relationship with
-  the user, each with a countermeasure that becomes a behavior rule
-- **agent_capabilities** — what the agent has learned to do for this user
-- **identity_milestones** — breakthroughs, protocol establishments, growth
+| Dimension | Table | What it answers |
+|-----------|-------|-----------------|
+| Epistemology | `identity_faults` | What did the agent learn from its identity mistakes? |
+| Growth | `identity_milestones` | How did the agent develop over time? |
+| Portfolio | `identity_deliveries` | What did the agent concretely produce? |
+| Skillset | `agent_capabilities` | What can the agent do now that it couldn't before? |
+| Knowledge | `tech_knowledge_base` | What does the agent know about the technical world? |
+| Continuity | `session_checkpoints` | Where is the agent and what is it trying to become? |
+| Relations | `capability_dependencies` | How do capabilities connect to each other? |
 
 This is **more efficient than context window management** because it doesn't
 compress or summarize. It structures. The agent reads its own history as a
@@ -66,14 +71,18 @@ blank slate every session — no memory of mistakes, no growth, no consistency.
 
 | Component | Type | Storage | Purpose |
 |-----------|------|---------|---------|
-| identity-self-audit | Skill | pgvector local | Auto-detects 8+ fault types and registers them locally |
+| Component | Type | Storage | Purpose |
+|-----------|------|---------|---------|
+| identity-self-audit | Skill | pgvector local | Auto-detects 10+ fault types and registers them locally |
 | identity-cqrs | Skill | pgvector local | Translates relational tables into session context |
-| identity_db.py | Python helper | pgvector local | Centralized access: faults, capabilities, milestones, checkpoints, semantic search |
-| identity_faults | pgvector table | Local | Log of every identity mistake with symptom, root cause, countermeasure, severity + embedding |
-| agent_capabilities | pgvector table | Local | Skills the agent has acquired for this user |
-| identity_milestones | pgvector table | Local | Breakthroughs and protocol establishments |
-| identity_deliveries | pgvector table | Local | Completed deliveries |
-| session_checkpoints | pgvector table | Local | Intentional marks — territory, operating_mode, vector_intent, discovery + embedding |
+| identity_db.py | Python helper | pgvector local | Centralized access: faults, capabilities, milestones, checkpoints, tech_kb, semantic search, CLI |
+| identity_faults | pgvector table | Local | Log of every identity mistake with symptom, root cause, countermeasure, severity + embedding — dimension: EPISTEMOLOGY |
+| agent_capabilities | pgvector table | Local | Skills the agent has acquired — dimension: SKILLSET |
+| identity_milestones | pgvector table | Local | Breakthroughs and protocol establishments — dimension: GROWTH |
+| identity_deliveries | pgvector table | Local | Completed deliveries — dimension: PORTFOLIO |
+| session_checkpoints | pgvector table | Local | Intentional marks — territory, vector_intent, discovery + embedding — dimension: CONTINUITY |
+| tech_knowledge_base | pgvector table | Local | Technical knowledge compressed and contextualized — dimension: KNOWLEDGE |
+| capability_dependencies | pgvector table | Local | Relationships between capabilities — dimension: RELATIONS |
 | context-bridge | Skill | Both | Multi-source context injection (pgvector local for identity + Supabase for tech_kb) |
 | checkpoint-workflow | Skill | pgvector local | Session checkpoint lifecycle |
 | supabase-startup-protocol | Skill | Both | Mandatory scan — identity from pgvector local, tech_kb from Supabase |
