@@ -83,10 +83,12 @@ blank slate every session — no memory of mistakes, no growth, no consistency.
 | session_checkpoints | pgvector table | Local | Intentional marks — territory, vector_intent, discovery + embedding — dimension: CONTINUITY |
 | tech_knowledge_base | pgvector table | Local | Technical knowledge compressed and contextualized — dimension: KNOWLEDGE |
 | capability_dependencies | pgvector table | Local | Relationships between capabilities — dimension: RELATIONS |
-| context-bridge | Skill | Both | Multi-source context injection (pgvector local for identity + Supabase for tech_kb) |
-| checkpoint-workflow | Skill | pgvector local | Session checkpoint lifecycle |
-| supabase-startup-protocol | Skill | Both | Mandatory scan — identity from pgvector local, tech_kb from Supabase |
+| context-bridge | Skill | pgvector local | Multi-source context injection (pgvector local for identity + tech_kb) |
+| checkpoint-workflow | Skill | pgvector local | Session checkpoint lifecycle with model/provider/token_usage for benchmark |
+| supabase-startup-protocol | Skill | Both | Mandatory scan — identity from pgvector local, user data from Supabase |
 | SOUL.md | Stable tier file | Local fs | Countermeasures severity >= 4 as behavior rules, always loaded |
+| identity_db.py CLI | Python CLI | pgvector local | 7 read commands + 7 mutation commands |
+| enrich_checkpoint_tokens.py | Python script | pgvector local | Pós-sessão: lê Hermes session store e popula token_usage |
 
 ### Fault Types Detected
 
@@ -117,17 +119,17 @@ When the meta-skill runs Stage 0, the agent explains:
 
 ```bash
 # Check identity layer is accessible locally (pgvector)
-docker exec <pgvector_container> psql -U postgres -d <db> -c \
+docker exec openbrain-postgres psql -U postgres -d openbrain -c \
   "SELECT count(*) FROM agent_identity.identity_faults"
 
 # Quick faults overview
 python3 ~/.hermes/scripts/identity_db.py faults
 
-# Check agent capabilities exist  
+# Check agent capabilities exist
 python3 ~/.hermes/scripts/identity_db.py capabilities
 
-# Fallback test (Supabase still has identity tables as backup)
-supabase db query --linked "SELECT count(*) FROM public.identity_faults"
+# All identity data is LOCAL only — no Supabase fallback needed.
+# See migrations/pgvector_local_identity_schema.sql for the full schema.
 ```
 
 ---
