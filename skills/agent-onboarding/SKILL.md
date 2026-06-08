@@ -89,6 +89,9 @@ blank slate every session — no memory of mistakes, no growth, no consistency.
 | SOUL.md | Stable tier file | Local fs | Countermeasures severity >= 4 as behavior rules, always loaded |
 | identity_db.py CLI | Python CLI | pgvector local | 7 read commands + 7 mutation commands |
 | enrich_checkpoint_tokens.py | Python script | pgvector local | Pós-sessão: lê Hermes session store e popula token_usage |
+| curator_worker.py | Python script, cron | pgvector local | Async consolidation worker: patterns, checkpoints, dedup, representation, deprecated detection. Runs via `hermes cron --no-agent` |
+| tag-checkpoint CLI | identity_db.py command | pgvector local | `identity_db.py tag-checkpoint <uuid> t1,t2` — add tags to a checkpoint (merges with existing). Never requires SQL |
+| curator_review_queue | pgvector table | Local | Queue for ambiguous findings (stale cps, duplicates) that need user `clarify` decision during startup |
 
 ### Fault Types Detected
 
