@@ -500,6 +500,7 @@ def detect_deprecated(conn) -> List[str]:
         )
 
     # 5b. Stale pending checkpoints (older than 7 days, no recent activity)
+    # Exclude deliberate long-term tests (stress-test, ongoing, periodic tags)
     cur.execute("""
         SELECT cp.id, cp.territory, cp.occurred_at, cp.session_id
         FROM agent_identity.session_checkpoints cp
@@ -508,6 +509,9 @@ def detect_deprecated(conn) -> List[str]:
         WHERE cp.status = 'pendente'
           AND cp.deleted_at IS NULL
           AND cp.occurred_at < NOW() - INTERVAL '7 days'
+          AND NOT (cp.tags @> ARRAY['stress-test'])
+          AND NOT (cp.tags @> ARRAY['ongoing'])
+          AND NOT (cp.tags @> ARRAY['periodic'])
           AND tcl.id IS NULL
         ORDER BY cp.occurred_at ASC
     """)
@@ -517,21 +521,46 @@ def detect_deprecated(conn) -> List[str]:
             f"since {r['occurred_at']}"
         )
 
-    # 5c. Old completed checkpoints (14+ days)
+    # 5c. Old completed checkpoints (30+ days) — validate value before archiving
+    # Soft-delete only if they generated milestones, capabilities, or tech_kb entries.
+    # Queue wasted checkpoints (no value generated) for user review.
     cur.execute("""
-        SELECT id, territory, occurred_at
-        FROM agent_identity.session_checkpoints
-        WHERE status = 'concluida'
-          AND deleted_at IS NULL
-          AND occurred_at < NOW() - INTERVAL '14 days'
+        SELECT cp.id, cp.territory, cp.occurred_at, cp.session_id,
+               EXISTS (SELECT 1 FROM agent_identity.identity_milestones WHERE session_id = cp.session_id) AS has_milestones,
+               EXISTS (SELECT 1 FROM agent_identity.tech_knowledge_base WHERE created_at::date = cp.occurred_at) AS has_tech_kb
+        FROM agent_identity.session_checkpoints cp
+        WHERE cp.status = 'concluida'
+          AND cp.deleted_at IS NULL
+          AND cp.occurred_at < NOW() - INTERVAL '30 days'
+        ORDER BY cp.occurred_at ASC
     """)
     old = cur.fetchall()
-    for r in old[:5]:
-        reports.append(
-            f"old completed checkpoint: {str(r['id'])[:8]} ({r['territory'][:40]}) {r['occurred_at']}"
-        )
-    if len(old) > 5:
-        reports.append(f"... and {len(old)-5} more old completed checkpoints")
+    for r in old:
+        if r['has_milestones'] or r['has_tech_kb']:
+            # Generated value — safe to soft-delete
+            cur.execute("""
+                UPDATE agent_identity.session_checkpoints
+                SET deleted_at = now()
+                WHERE id = %s
+            """, (r['id'],))
+            reports.append(
+                f"archived checkpoint (value extracted): {str(r['id'])[:8]} ({r['territory'][:40]}) {r['occurred_at']}"
+            )
+        else:
+            # No value generated — queue for user review
+            cur.execute("""
+                INSERT INTO agent_identity.curator_review_queue
+                    (entry_type, entry_id, description)
+                VALUES (%s, %s, %s)
+                ON CONFLICT DO NOTHING
+            """, (
+                'wasted_checkpoint',
+                r['id'],
+                f"Checkpoint '{r['territory'][:80]}' ({r['occurred_at']}) concluded with no milestones or tech_kb entries. Potential waste pattern."
+            ))
+            reports.append(
+                f"wasted checkpoint (no value): {str(r['id'])[:8]} ({r['territory'][:40]}) {r['occurred_at']}"
+            )
 
     # 5d. Potentially stale capabilities (90+ days without update)
     cur.execute("""
